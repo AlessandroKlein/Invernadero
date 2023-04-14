@@ -17,4 +17,4 @@ En conclusión, este proyecto de invernadero inteligente es muy útil y práctic
 
 ## Actualizacion
 
-En la versión V10 se ha actualizado la página web local.
+En la Wiki se actualizarán constantemente los datos que son modificables en cada versión. Si uno de los datos no se encuentra en su sección, por favor, ignórelo
