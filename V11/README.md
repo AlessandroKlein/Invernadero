@@ -1,0 +1,1 @@
+Se ha añadido un control adicional para otra bomba, y se ha mejorado la precisión de la lectura de humedad del suelo con una segunda sonda. Además, se realizaron ajustes para actualizar automáticamente la página de ThingSpeak y la página local.
