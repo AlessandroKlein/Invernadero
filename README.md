@@ -12,3 +12,9 @@ El sensor de humedad del suelo es muy importante para medir la humedad del sustr
 En este fascinante proyecto de invernadero inteligente, se ha integrado el sensor BMP280 de Presión y Temperatura. A pesar de estar deshabilitado en el código, este sensor es muy útil ya que permite medir la presión atmosférica y la temperatura ambiente.
 
 En conclusión, este proyecto de invernadero inteligente es muy útil y práctico para controlar el ambiente de las plantas en un espacio cerrado. La integración de varios sensores permite tomar medidas precisas y mejorar la calidad del aire, la humedad y la temperatura. Además, el uso de ThingSpeak y una página web local permite monitorear y controlar el invernadero desde cualquier lugar.
+
+
+
+## Actualizacion
+
+En la versión V10 se ha actualizado la página web local.

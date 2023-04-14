@@ -1,0 +1,1 @@
+Se ha incorporado una nueva funcionalidad al proyecto: la posibilidad de acceder a una página web local. Ahora, además de controlar el invernadero a través de WiFi y enviar los datos a ThingSpeak, el usuario puede acceder a la información directamente desde una página web en su navegador. Esta característica permite una experiencia más intuitiva y accesible para el usuario.

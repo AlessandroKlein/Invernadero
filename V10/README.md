@@ -1,0 +1,1 @@
+Se ha actualizado la función de la página web local, agregando la capacidad de manejar errores 404 de manera adecuada.
