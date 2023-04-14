@@ -1,3 +1,9 @@
+## Actualizacion
+
+En la Wiki se actualizarán constantemente los datos que son modificables en cada versión. Si uno de los datos no se encuentra en su sección, por favor, ignórelo
+
+
+# Informacion general del proyecto
 
 Este proyecto trata de crear un invernadero inteligente mediante el uso de un microcontrolador ESP32 WROOM. El objetivo principal del invernadero es controlar la iluminación y la ventilación de forma automática. Además, se envían los datos de los sensores a ThingSpeak mediante WiFi y a una página web local.
 
@@ -12,9 +18,3 @@ El sensor de humedad del suelo es muy importante para medir la humedad del sustr
 En este fascinante proyecto de invernadero inteligente, se ha integrado el sensor BMP280 de Presión y Temperatura. A pesar de estar deshabilitado en el código, este sensor es muy útil ya que permite medir la presión atmosférica y la temperatura ambiente.
 
 En conclusión, este proyecto de invernadero inteligente es muy útil y práctico para controlar el ambiente de las plantas en un espacio cerrado. La integración de varios sensores permite tomar medidas precisas y mejorar la calidad del aire, la humedad y la temperatura. Además, el uso de ThingSpeak y una página web local permite monitorear y controlar el invernadero desde cualquier lugar.
-
-
-
-## Actualizacion
-
-En la Wiki se actualizarán constantemente los datos que son modificables en cada versión. Si uno de los datos no se encuentra en su sección, por favor, ignórelo
