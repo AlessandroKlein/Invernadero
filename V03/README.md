@@ -1,1 +1,0 @@
-Se ha optimizado y reorganizado el código base para mejorar su eficiencia y estructura.

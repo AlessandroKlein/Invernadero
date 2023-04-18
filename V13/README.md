@@ -1,1 +1,0 @@
-Se ha integrado una nueva bomba para optimizar las tres fases de crecimiento de la planta. Además, se ha habilitado la visualización del estado de las bombas en la página web local y se ha incluido la dirección IP del ESP32 en la pantalla LCD para una experiencia de usuario más completa.

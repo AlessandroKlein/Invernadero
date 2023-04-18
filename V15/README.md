@@ -1,1 +1,0 @@
-Nos complace informarles que hemos actualizado nuestra página web con nuevas funcionalidades. Ahora, además de mantener la capacidad de conectarse a ThingSpeak, hemos agregado la conexión a Adafruit IO para visualizar nuestros datos. ¡Estamos emocionados de ofrecer esta nueva mejora en nuestra aplicacion!
