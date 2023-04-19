@@ -7,7 +7,7 @@
 #include <MQUnifiedsensor.h>
 //#include <Adafruit_Sensor.h>
 //#include <Adafruit_BMP280.h>
-#include <AdafruitIO_WiFi.h>
+#include <EEPROM.h>
 //################################# Datos para modificar #####################################
 //___________________________ Definicion de los pines ________________________________________
 // 22- 21
@@ -29,7 +29,6 @@
 #define ventilacionpin 32  // Pin del relé 6 (Ventilación)
 
 //________________________Definicion de los tiempo de actualizacion__________________________
-#define AdafruitIO_actualizacion 3000// El valor 3000 es el indicado por AdafruitIO. Se recomienda 10000
 #define WEBSOCKETS_actualizacion 3000// El valor 3000 es el indicado por el tipo de precision que se quiere, si no se quiere tal precision paselo a 5000
 #define sensoresactua 500           // Tiempo de actualizacion de los sensores
 #define acHumedad 500               // Tiempo de actualizacion de la Humedad
@@ -42,21 +41,27 @@
 #define actualizacion_web_tiempo 5  // Tiempo que pasa para la actualizacion de la pagina web
 //________________________ Datos de % de humedad del suelo __________________________
 // Crecimiento
-#define menor_porcentaje 80  // Establece la el % de humedad del suelo minimo para que empiece la bomba
-#define mayor_porcentaje 90  // Establece la el % de humedad del suelo maximo para que pare la bomba
+int menor_porcentaje = 80;  // Establece la el % de humedad del suelo minimo para que empiece la bomba
+int mayor_porcentaje = 90;  // Establece la el % de humedad del suelo maximo para que pare la bomba
 // Vegetacion
-#define menor_porcentaje_vege 70  // Establece la el % de humedad del suelo minimo para que empiece la bomba
-#define mayor_porcentaje_vege 80  // Establece la el % de humedad del suelo maximo para que pare la bomba
+int menor_porcentaje_vege = 70;  // Establece la el % de humedad del suelo minimo para que empiece la bomba
+int mayor_porcentaje_vege = 80;  // Establece la el % de humedad del suelo maximo para que pare la bomba
 // Flora
-#define menor_porcentaje_flora 40  // Establece la el % de humedad del suelo minimo para que empiece la bomba
-#define mayor_porcentaje_flora 50  // Establece la el % de humedad del suelo maximo para que pare la bomba
+int menor_porcentaje_Prin_flora = 40;  // Establece la el % de humedad del suelo minimo para que empiece la bomba
+int mayor_porcentaje_prin_flora = 50;  // Establece la el % de humedad del suelo maximo para que pare la bomba
+
+int menor_porcentaje_flora = 40;  // Establece la el % de humedad del suelo minimo para que empiece la bomba
+int mayor_porcentaje_flora = 40;  // Establece la el % de humedad del suelo maximo para que pare la bomba
+//________________________ Datos de temperatura __________________________
+int temperatura_mayor = 25;
+int temperatura_menor = 20;
 //________________________ Dartos para el siclo solar __________________________
-#define horaamanecer 8    // Establece la hora del amanecer para la iluminacion (Sin poner minutos)
-#define horaanochecer 18  // Establece la hora del anochecer para la iluminacion (Sin poner minutos)
+int horaamanecer = 8;    // Establece la hora del amanecer para la iluminacion (Sin poner minutos)
+int horaanochecer = 18;  // Establece la hora del anochecer para la iluminacion (Sin poner minutos)
 
 //___________________________________________________________________________________________
-const char* ssid = "ssid";                // SSID del router.
-const char* password = "password";        // Contraseña del router.
+String ssid = "";                         // SSID de la red WiFi
+String password = "";                     // Contraseña de la red WiFi
 const char* timeServer = "pool.ntp.org";  // Servidor NTP para el módulo de tiempo real.
 const long gmtOffset_sec = -10800;        // Zona horaria (en segundos).
 const int daylightOffset_sec = 0;         // Desfase horario de horario de verano (en segundos).
@@ -69,6 +74,8 @@ const char* writeAPIKey = "WriteAPIKey";  // Write API Key del canal.
 #define IO_KEY "your_key"
 //############################################################################################
 
+bool shouldSaveConfig = false; // Bandera para indicar si se deben guardar los datos de la configuración en la memoria EEPROM
+int soilHumidity = 0; // Porcentaje de humedad del suelo
 //___________________________________________________________________________________________
 unsigned long previousMillis = 0;
 unsigned long actualizacion_web = 0;   // variable para almacenar el tiempo de la última vez que se actualizó la pagina web
@@ -81,7 +88,6 @@ unsigned long actualsensores_ = 0;     // variable para almacenar el tiempo de l
 unsigned long actualizacion_hora = 0;  // variable para almacenar el tiempo de la última vez que se actualizón la hora en el serial
 unsigned long lcdMillis_buton_lag = 0;
 unsigned long lcdMillis_buton_while = 0;
-unsigned long AdafruitIO_timer= 0;
 unsigned long WEBSOCKETS_time = 0;
 //___________________________________________________________________________________________
 int buttonState = 0;           // variable para almacenar el estado actual del botón
@@ -124,28 +130,31 @@ WiFiClient client;
 
 //Adafruit_BMP280 bmp;  // Defino BMP280
 
-// Cree una instancia del feed al que enviará y recibirá datos
-AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, ssid, password);
-AdafruitIO_Feed *myFeed = io.feed("my-feed");
-
 //___________________________________________________________________________________________
 void setup() {
   Serial.begin(115200);
   Serial.println("Test de sensores:");
-
+  WiFi.begin();
   // Conexión a la red Wi-Fi
-  Serial.println("Conectando a la red Wi-Fi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Conexión a la red Wi-Fi fallida. Intentando de nuevo...");
-    WiFi.begin(ssid, password);
+  if (WiFi.SSID() != "") {
+    Serial.println("Conectando a la red WiFi guardada...");
+    WiFi.begin(WiFi.SSID().c_str(), WiFi.psk().c_str());
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.println("Conectando...");
+    }
+    Serial.println("Conectado a la red WiFi guardada");
+  } else {
+    // Si no existen datos de la configuración, crear una red WiFi generada automáticamente
+    Serial.println("Creando una red WiFi para la configuración...");
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("ESP32-AP", "password123"); // Nombre y contraseña de la red WiFi generada automáticamente
   }
+
   Serial.println("Conexión a la red Wi-Fi establecida.");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  Adafruit_IO_setup();
 
   // Inicializar la comunicación con ThingSpeak
   ThingSpeak.begin(client);
@@ -208,8 +217,12 @@ void setup() {
   lcd.backlight();  // Encender la luz de fondo
 
   // Configuración del servidor de WebSockets
-  webSocket.begin();
   webSocket.onEvent(webSocketEvent);
+  webSocket.begin();
+  // Configurar las rutas del servidor web
+  server.on("/config", handleRoot);
+  server.on("/save", handleSave);
+  server.begin();
   Serial.println("Servidor de WebSockets iniciado");  
 }
 //___________________________________________________________________________________________
@@ -219,6 +232,32 @@ void loop() {
   // Manejo de solicitudes al servidor web
   // Manejar los eventos del servidor de WebSockets
   webSocket.loop();
+  server.handleClient();
+
+  if (shouldSaveConfig) {
+    // Guardar los datos de la configuración en la memoria EEPROM
+    Serial.println("Guardando datos de la configuración en la memoria EEPROM...");
+    EEPROM.begin(512);
+    EEPROM.writeString(0, ssid);
+    EEPROM.writeString(32, password);
+    EEPROM.writeInt(64, mayor_porcentaje);
+    EEPROM.writeInt(128, menor_porcentaje);
+    EEPROM.writeInt(192, mayor_porcentaje_vege);
+    EEPROM.writeInt(256, menor_porcentaje_vege);
+    EEPROM.writeInt(320, mayor_porcentaje_prin_flora);
+    EEPROM.writeInt(384, menor_porcentaje_Prin_flora);
+    EEPROM.writeInt(448, mayor_porcentaje_flora);
+    EEPROM.writeInt(512, menor_porcentaje_flora);
+    EEPROM.writeInt(576, temperatura_mayor);
+    EEPROM.writeInt(640, temperatura_menor);
+    EEPROM.writeInt(704, horaamanecer);
+    EEPROM.writeInt(768, horaanochecer);
+    EEPROM.write(704, 1); // Indicador de que hay datos de la configuración guardados
+    EEPROM.commit();
+    EEPROM.end();
+    Serial.println("Datos de la configuración guardados");
+    shouldSaveConfig = false;
+  }
   if (currentMillis - actualizacion_web >= actualizacion_web_tiempo) {  // si ha pasado el tiempo del intervalo
     actualizacion_web = currentMillis;                                  // guardar el tiempo actual como la última vez que se actualizó
     server.handleClient();
@@ -234,10 +273,6 @@ void loop() {
     actualizacion_hora = currentMillis;                         // guardar el tiempo actual como la última vez que se actualizó
     strftime(strftime_buf, sizeof(strftime_buf), "%H:%M:%S", &timeinfo);
     Serial.println(strftime_buf);
-  }
-  if (currentMillis - AdafruitIO_timer >= AdafruitIO_actualizacion) {
-    Adafruit_IO_loop();
-    AdafruitIO_timer = currentMillis;
   }
   // Leer la humedad del suelo
   if (currentMillis - actualsensores_ >= sensoresactua) {  // si ha pasado el tiempo del intervalo
@@ -374,22 +409,6 @@ void loop() {
 }
 
 //_________________________________Inicializacion de sensores_________________________________
-
-void Adafruit_IO_setup() {
-  // Connect to Adafruit IO
-  io.connect();
-
-  // Wait for a connection
-  while (io.status() < AIO_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to Adafruit IO...");
-  }
-
-  Serial.println("Connected to Adafruit IO!");
-
-  // Subscribe to the feed
-  //myFeed->subscribe();
-}
 
 void mqsensor() {
   Serial.print("Calibrando por favor espere.");
@@ -764,14 +783,14 @@ void humedad_suelo() {
   } else if (humedad_vege > mayor_porcentaje_vege) {
     digitalWrite(bombadospin, HIGH);
   }
-  if (humedad_prin_flora_ < menor_porcentaje_flora) {
+  if (humedad_prin_flora_ < menor_porcentaje_Prin_flora) {
     digitalWrite(bombatrespin, LOW);
-  } else if (humedad_prin_flora_ > mayor_porcentaje_flora) {
+  } else if (humedad_prin_flora_ > mayor_porcentaje_prin_flora) {
     digitalWrite(bombatrespin, HIGH);
   }
-  if (humedad_flora < 40) {
+  if (humedad_flora < menor_porcentaje_flora) {
     digitalWrite(bombacuatropin, LOW);
-  } else if (humedad_flora > 40) {
+  } else if (humedad_flora > mayor_porcentaje_flora) {
     digitalWrite(bombacuatropin, HIGH);
   }
 }
@@ -789,9 +808,9 @@ void iluminacion() {
 
 void ventilacion() {
   // Controlar la ventilación en base a la temperatura
-  if (temp_interior > 25) {
+  if (temp_interior > temperatura_mayor) {
     digitalWrite(ventilacionpin, HIGH);
-  } else if (temp_interior < 20) {
+  } else if (temp_interior < temperatura_menor) {
     digitalWrite(ventilacionpin, LOW);
   }
 }
@@ -895,18 +914,6 @@ void paginaweb() {
   Serial.println("Datos enviados a ThingSpeak.");
 }
 //___________________________________________________________________________________________
-
-void Adafruit_IO_loop() {
-  myFeed->save(humedad_plantin);
-  myFeed->save(humedad_vege);
-  myFeed->save(humedad_prin_flora_);
-  myFeed->save(humedad_flora);
-  myFeed->save(temp_exterior);
-  myFeed->save(temp_interior);
-  myFeed->save(humedad_ambiente);
-  myFeed->save(ppm);
-}
-//___________________________________________________________________________________________
 //################################# Actualizacion WebSocket #####################################
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
@@ -954,4 +961,82 @@ void sendSensorData() {
 
   // Enviar el objeto JSON a todos los clientes conectados al servidor de WebSockets
   webSocket.broadcastTXT(json);
+}
+//___________________________________________________________________________________________
+void handleRoot() {
+  String html = "<html><body>";
+  html += "<h1>Configuración WiFi</h1>";
+  html += "<form method='post' action='/save'>";
+  html += "<label for='ssid'>SSID:</label>";
+  html += "<input type='text' name='ssid'><br>";
+  html += "<label for='password'>Contraseña:</label>";
+  html += "<input type='password' name='password'><br>";
+  html += "<h1>Configuración de mediciones principlaes</h1>";
+  html += "<h2>Etapa plantin</h2>";
+  html += "<label for='mayor_porcentaje'>Porcentaje de humedad del suelo mayor:</label>";
+  html += "<input type='number' name='mayor_porcentaje' min='0' max='100'><br>";
+  html += "<label for='menor_porcentaje'>Porcentaje de humedad del suelo menor:</label>";
+  html += "<input type='number' name='menor_porcentaje' min='0' max='100'><br>";
+  html += "<h2>Etapa vegetacion</h2>";
+  html += "<label for='mayor_porcentaje_vege'>Porcentaje de humedad del suelo mayor:</label>";
+  html += "<input type='number' name='mayor_porcentaje_vege' min='0' max='100'><br>";
+  html += "<label for='menor_porcentaje_vege'>Porcentaje de humedad del suelo menor:</label>";
+  html += "<input type='number' name='menor_porcentaje_vege' min='0' max='100'><br>";  
+  html += "<h2>Etapa principio de flora</h2>";
+  html += "<label for='mayor_porcentaje_prin_flora'>Porcentaje de humedad del suelo mayor:</label>";
+  html += "<input type='number' name='mayor_porcentaje_prin_flora' min='0' max='100'><br>";
+  html += "<label for='menor_porcentaje_Prin_flora'>Porcentaje de humedad del suelo menor:</label>";
+  html += "<input type='number' name='menor_porcentaje_Prin_flora' min='0' max='100'><br>";  
+  html += "<h2>Etapa plantin</h2>";
+  html += "<label for='mayor_porcentaje_flora'>Porcentaje de humedad del suelo mayor:</label>";
+  html += "<input type='number' name='mayor_porcentaje_flora' min='0' max='100'><br>";
+  html += "<label for='menor_porcentaje_flora'>Porcentaje de humedad del suelo menor:</label>";
+  html += "<input type='number' name='menor_porcentaje_flora' min='0' max='100'><br>";  
+  html += "<h2>Temperatura del invernadero</h2>";
+  html += "<label for='temperatura_mayor'>Mayor temperatura:</label>";
+  html += "<input type='number' name='temperatura_mayor' min='0' max='100'><br>";
+  html += "<label for='temperatura_menor'>Menor temperatura:</label>";
+  html += "<input type='number' name='temperatura_menor' min='0' max='100'><br>";  
+  html += "<h2>Horarios de iluminacion</h2>";
+  html += "<h3>(Solo hora no minutos Ej: 18)</h3>";
+  html += "<label for='horaanochecer'>Hora de finalizacion:</label>";
+  html += "<input type='number' name='horaanochecer' min='0' max='23'><br>";
+  html += "<label for='horaamanecer'>Hora de inicio:</label>";
+  html += "<input type='number' name='horaamanecer' min='0' max='23'><br>";  
+  html += "<input type='submit' value='Guardar'>";
+  html += "</form>";
+  html += "</body></html>";
+
+  server.send(200, "text/html", html);
+}
+
+void handleSave() {
+  ssid = server.arg("ssid");
+  password = server.arg("password");
+  mayor_porcentaje = server.arg("mayor_porcentaje").toInt();
+  menor_porcentaje = server.arg("menor_porcentaje").toInt();
+  mayor_porcentaje_vege = server.arg("mayor_porcentaje_vege").toInt();
+  menor_porcentaje_vege = server.arg("menor_porcentaje_vege").toInt();
+  mayor_porcentaje_prin_flora = server.arg("mayor_porcentaje_prin_flora").toInt();
+  menor_porcentaje_Prin_flora = server.arg("menor_porcentaje_Prin_flora").toInt();
+  mayor_porcentaje_flora = server.arg("mayor_porcentaje_flora").toInt();
+  menor_porcentaje_flora = server.arg("menor_porcentaje_flora").toInt();
+  temperatura_mayor = server.arg("temperatura_mayor").toInt();
+  temperatura_menor = server.arg("temperatura_menor").toInt();
+  horaanochecer = server.arg("horaanochecer").toInt();
+  horaamanecer = server.arg("horaamanecer").toInt();
+  shouldSaveConfig = true;
+  
+  String html = "<html><body>";
+  html += "<h1>Configuración guardada</h1>";
+  html += "<p>Los datos de la configuración han sido guardados.</p>";
+  html += "<p>La red WiFi generada automáticamente se apagará en unos segundos.</p>";
+  html += "</body></html>";
+
+  server.send(200, "text/html", html);
+  
+  // Apagar la red WiFi generada automáticamente después de 10 segundos
+  delay(10000);
+  WiFi.softAPdisconnect(true);
+  Serial.println("Red WiFi generada automáticamente apagada");
 }
