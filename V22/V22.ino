@@ -706,15 +706,15 @@ void humedad_del_suelo() {
   // Leer la humedad del sensor LM393
   // Crecimiento
   float humedadSuelo_ = analogRead(humedad_pin);
-  humedad_plantin = humedadSuelo_;
+  humedad_plantin = map(humedadSuelo_, 0, 1023, 0, 100);
   // Vegetacion
   float humedadSuelo_dos = analogRead(humedad_vege_pin);
-  humedad_vege = humedadSuelo_dos;
+  humedad_vege = map(humedadSuelo_dos, 0, 1023, 0, 100);
   // Flora
   float humedadSuelo_tres = analogRead(humedad_prin_flora_pin);
-  humedad_prin_flora_ = humedadSuelo_tres;
+  humedad_prin_flora_ = map(humedadSuelo_tres, 0, 1023, 0, 100);
   float humedadSuelo_cuatro = analogRead(humedad_flora_pin);
-  humedad_flora = humedadSuelo_cuatro;
+  humedad_flora = map(humedadSuelo_cuatro, 0, 1023, 0, 100);
 
   Serial.print("H. Inicio: ");
   Serial.println(humedad_plantin);
