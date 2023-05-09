@@ -392,8 +392,8 @@ void readConfigFromEEPROM() {
   co2Max = EEPROM.read(149);
   co2Min = EEPROM.read(151);
   //___________________________________
-  /*EEPROM.get(65, channelID);
-  EEPROM.get(70, writeAPIKey);*/
+  EEPROM.get(65, channelID);
+  EEPROM.get(70, writeAPIKey);
   //___________________________________
   Serial.println("Se leyo la informacion de readConfigFromEEPROM");
 
@@ -437,7 +437,7 @@ void readConfigFromEEPROM() {
 // Function to write configuration values to EEPROM
 void writeConfigToEEPROM() {
   //EEPROM.begin(512);
-  /*EEPROM.put(105, pump1Min);
+  EEPROM.put(105, pump1Min);
   EEPROM.put(108, pump1Max);
   EEPROM.put(111, pump2Min);
   EEPROM.put(114, pump2Max);
@@ -454,7 +454,7 @@ void writeConfigToEEPROM() {
   EEPROM.put(149, co2Max);
   EEPROM.put(151, co2Min);
   EEPROM.commit();
-  EEPROM.end();*/
+  EEPROM.end();
   /*EEPROM.put(pump1MinAddr, pump1Min);
   EEPROM.put(pump1MaxAddr, pump1Max);
   EEPROM.put(pump2MinAddr, pump2Min);
