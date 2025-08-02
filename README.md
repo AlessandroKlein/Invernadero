@@ -32,10 +32,12 @@ Sistema completo de monitoreo y control automatizado para invernaderos basado en
   - Calefactores
   - Sistemas de enfriamiento
 - **Control Automático Inteligente**:
-  - Riego automático basado en humedad del suelo
-  - Control de temperatura con calefacción/enfriamiento
-  - Programación horaria para iluminación
-  - Umbrales personalizables por dispositivo
+  - **Riego Automático**: Basado en sensores de humedad del suelo con umbrales configurables
+  - **Control de Temperatura**: Activación automática de ventiladores, calefactores y enfriadores
+  - **Programación de Iluminación**: Horarios de encendido/apagado para luces de crecimiento
+  - **Configuración Persistente**: Guardado automático en memoria flash del ESP32
+  - **APIs REST**: Endpoints dedicados para configuración automática (/api/outputs/auto-config)
+  - **Umbrales Personalizables**: Configuración individual por dispositivo y tipo de control
 
 ### 🌐 Interfaz Web Completa
 - **Dashboard Principal**: Visualización en tiempo real con tooltips informativos
@@ -84,6 +86,7 @@ Invernadero/
 ├── src/
 │   ├── main.cpp              # Programa principal y loop
 │   ├── sensors.cpp           # Gestión de sensores y salidas
+│   ├── automatic_control.cpp # Sistema de control automático
 │   ├── web_server.cpp        # Servidor web y APIs REST
 │   ├── web_pages.cpp         # Páginas HTML y CSS
 │   ├── config.cpp            # Sistema de configuración
@@ -93,7 +96,8 @@ Invernadero/
 │   ├── ota_manager.cpp       # Actualizaciones OTA
 │   └── sd_manager.cpp        # Gestión tarjeta SD (opcional)
 ├── include/
-│   └── *.hpp                 # Archivos de cabecera
+│   ├── automatic_control.hpp # Cabecera del control automático
+│   └── *.hpp                 # Otros archivos de cabecera
 ├── platformio.ini            # Configuración del proyecto
 └── README.md                 # Este archivo
 ```
@@ -152,6 +156,8 @@ GET  /api/sensors/config      # Configuración de sensores
 POST /api/sensors/config      # Actualizar configuración
 GET  /api/outputs/status      # Estado de salidas
 POST /api/outputs/control     # Control manual de salidas
+GET  /api/outputs/auto-config # Configuración de control automático
+POST /api/outputs/auto-config # Guardar configuración automática
 GET  /api/config/json         # Exportar configuración
 POST /api/config/json         # Importar configuración
 POST /config/reset            # Reset de fábrica
@@ -251,7 +257,20 @@ Este proyecto está bajo licencia MIT. Ver archivo LICENSE para detalles.
 
 ## Historial de Versiones
 
-### v1.2.0 (2025-01-17) - Actual
+### v1.4.0 (2025-08-02) - Actual
+- ✅ **Sistema de Control Automático Completo**: AutomaticControlManager implementado
+- ✅ **Control Inteligente de Riego**: Basado en sensores de humedad del suelo
+- ✅ **Control de Temperatura**: Automático para ventiladores, calefactores y enfriadores
+- ✅ **Control de Iluminación**: Programación horaria para luces de crecimiento
+- ✅ **APIs de Configuración**: Endpoints /api/outputs/auto-config para gestión
+- ✅ **Persistencia de Configuración**: Guardado automático en memoria flash ESP32
+- ✅ **Integración Completa**: Sistema totalmente funcional y probado
+
+### v1.3.0 (2025-01-18)
+- ✅ **Actualización de Menús**: Navegación completa mejorada
+- ✅ **Corrección Config JSON**: Enlaces y funcionalidad corregidos
+
+### v1.2.0 (2025-01-17)
 - ✅ **Sistema de Salidas Completo**: 6 salidas configurables con control automático
 - ✅ **Control Inteligente**: Riego, temperatura e iluminación automatizados
 - ✅ **Interfaz Web Mejorada**: Dashboard responsive con navegación completa
