@@ -1,3 +1,7 @@
 /vendor/
 /.env
 /composer.lock
+.pio/
+.vscode/
+*.log
+.DS_Store

@@ -51,4 +51,29 @@ final class Auth
         }
         return null;
     }
+
+    /** Carga roles y permisos (códigos) de un usuario para incluir en el JWT. */
+    public static function identityFor(string $userId): array
+    {
+        $db = Database::get();
+
+        $st = $db->prepare(
+            'SELECT r.name FROM roles r
+             JOIN user_roles ur ON ur.role_id = r.id
+             WHERE ur.user_id = ? ORDER BY r.name'
+        );
+        $st->execute([$userId]);
+        $roles = array_column($st->fetchAll(), 'name');
+
+        $st = $db->prepare(
+            'SELECT DISTINCT p.code FROM permissions p
+             JOIN role_permissions rp ON rp.permission_id = p.id
+             JOIN user_roles ur ON ur.role_id = rp.role_id
+             WHERE ur.user_id = ? ORDER BY p.code'
+        );
+        $st->execute([$userId]);
+        $perms = array_column($st->fetchAll(), 'code');
+
+        return ['roles' => $roles, 'perms' => $perms];
+    }
 }

@@ -64,6 +64,18 @@ services:
     ports:
       - "8081:8080"
 
+  # Exposición pública opcional mediante túnel de Cloudflare.
+  # Requiere TUNNEL_TOKEN en .env. Levantar con:
+  #   docker compose --profile tunnel up -d cloudflared
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: invernadero-tunnel
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    depends_on:
+      - php
+    restart: unless-stopped
+
 volumes:
   pgdata:
   mqttdata:

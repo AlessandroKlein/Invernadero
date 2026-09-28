@@ -17,7 +17,8 @@ final class Api
         $route = $seg[0] ?? '';
 
         try {
-            if ($route === 'auth' && $method === 'POST') {
+            // Rutas públicas
+            if ($route === 'auth' && ($seg[1] ?? 'login') === 'login' && $method === 'POST') {
                 self::login();
             }
             if ($route === 'status' && $method === 'GET') {
@@ -25,19 +26,32 @@ final class Api
             }
 
             // El resto requiere JWT válido
-            $user = Auth::verify(Auth::bearer());
-            if ($user === null) {
+            $auth = Auth::verify(Auth::bearer());
+            if ($auth === null) {
                 Response::error('No autorizado', 401);
             }
 
             switch ($route) {
+                case 'auth':
+                    if (($seg[1] ?? '') === 'me' && $method === 'GET') self::me($auth);
+                    Response::error('Ruta no encontrada', 404);
+                case 'roles':
+                    Permissions::require($auth, 'user.read');
+                    self::roles();
+                case 'permissions':
+                    Permissions::require($auth, 'user.read');
+                    self::permissions();
+                case 'users':
+                    self::users($seg[1] ?? null, $method, $auth);
                 case 'greenhouses':
-                    self::greenhouses($seg[1] ?? null, $method);
+                    self::greenhouses($seg[1] ?? null, $method, $auth);
                 case 'devices':
-                    self::devices($seg, $method);
+                    self::devices($seg, $method, $auth);
                 case 'firmware':
+                    Permissions::require($auth, 'firmware.read');
                     self::firmware();
                 case 'events':
+                    Permissions::require($auth, 'device.read');
                     self::events($seg[1] ?? null);
                 default:
                     Response::error('Ruta no encontrada', 404);
@@ -55,7 +69,7 @@ final class Api
         $password = $in['password'] ?? '';
 
         $db = Database::get();
-        $st = $db->prepare('SELECT id, username, password_hash, role_id FROM users WHERE username = ? AND active = TRUE');
+        $st = $db->prepare('SELECT * FROM users WHERE username = ? AND active = TRUE');
         $st->execute([$username]);
         $u = $st->fetch();
 
@@ -63,20 +77,201 @@ final class Api
             Response::error('Credenciales inválidas', 401);
         }
 
+        $ident = Auth::identityFor($u['id']);
+        $scope = json_decode($u['scope'], true) ?: ['greenhouses' => ['*']];
+
+        $db->prepare('UPDATE users SET last_login = now() WHERE id = ?')->execute([$u['id']]);
+
         $token = Auth::issue([
             'sub' => $u['id'],
             'username' => $u['username'],
-            'role_id' => (int) $u['role_id'],
+            'full_name' => $u['full_name'],
+            'roles' => $ident['roles'],
+            'perms' => $ident['perms'],
+            'scope' => $scope,
         ]);
-        Response::json(['token' => $token, 'username' => $u['username'], 'role_id' => (int) $u['role_id']]);
+        Response::json([
+            'token' => $token,
+            'user' => [
+                'id' => $u['id'],
+                'username' => $u['username'],
+                'full_name' => $u['full_name'],
+                'roles' => $ident['roles'],
+                'perms' => $ident['perms'],
+                'scope' => $scope,
+            ],
+        ]);
+    }
+
+    private static function me(array $auth): never
+    {
+        $db = Database::get();
+        $st = $db->prepare('SELECT id, username, email, full_name, active, scope, created_at, last_login FROM users WHERE id = ?');
+        $st->execute([$auth['sub'] ?? null]);
+        $u = $st->fetch();
+        if (!$u) Response::error('Usuario no encontrado', 404);
+        $u['roles'] = $auth['roles'] ?? [];
+        $u['perms'] = $auth['perms'] ?? [];
+        Response::json($u);
+    }
+
+    // ---------- RBAC: roles y permisos ----------
+    private static function roles(): never
+    {
+        $db = Database::get();
+        Response::json($db->query('SELECT * FROM roles ORDER BY name')->fetchAll());
+    }
+
+    private static function permissions(): never
+    {
+        $db = Database::get();
+        $perms = $db->query('SELECT * FROM permissions ORDER BY code')->fetchAll();
+        $map = [];
+        foreach ($db->query(
+            'SELECT rp.role_id, p.code FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id'
+        )->fetchAll() as $row) {
+            $map[$row['role_id']][] = $row['code'];
+        }
+        Response::json(['permissions' => $perms, 'role_permissions' => $map]);
+    }
+
+    // ---------- Gestión de usuarios (RBAC) ----------
+    private static function users(?string $id, string $method, array $auth): never
+    {
+        if ($id === null) {
+            if ($method === 'GET') {
+                Permissions::require($auth, 'user.read');
+                self::listUsers();
+            }
+            if ($method === 'POST') {
+                Permissions::require($auth, 'user.create');
+                self::createUser($auth);
+            }
+            Response::error('Operación no soportada', 405);
+        }
+        Permissions::require($auth, $method === 'DELETE' ? 'user.delete' : 'user.edit');
+        self::mutateUser($id, $method, $auth);
+    }
+
+    private static function listUsers(): never
+    {
+        $db = Database::get();
+        $rows = $db->query('SELECT * FROM users ORDER BY username')->fetchAll();
+        foreach ($rows as &$r) {
+            $st = $db->prepare('SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ? ORDER BY r.name');
+            $st->execute([$r['id']]);
+            $r['roles'] = array_column($st->fetchAll(), 'name');
+        }
+        unset($r);
+        Response::json($rows);
+    }
+
+    private static function createUser(array $auth): never
+    {
+        $db = Database::get();
+        $in = json_decode(file_get_contents('php://input') ?: '[]', true) ?: [];
+        $username = trim($in['username'] ?? '');
+        $password = $in['password'] ?? '';
+        if ($username === '' || strlen($password) < 6) {
+            Response::error('Usuario requerido y contraseña de al menos 6 caracteres', 400);
+        }
+        self::guardSuperadmin($in['roles'] ?? [], $auth);
+
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $scope = json_encode($in['scope'] ?? ['greenhouses' => ['*']]);
+        $st = $db->prepare(
+            'INSERT INTO users (username, email, full_name, password_hash, active, scope)
+             VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
+        );
+        try {
+            $st->execute([
+                $username,
+                $in['email'] ?? null,
+                $in['full_name'] ?? null,
+                $hash,
+                (bool) ($in['active'] ?? true),
+                $scope,
+            ]);
+        } catch (\Throwable $e) {
+            Response::error('No se pudo crear el usuario (¿ya existe?): ' . $e->getMessage(), 409);
+        }
+        $id = $st->fetch()['id'];
+        self::setRoles($id, $in['roles'] ?? []);
+        Response::json(['id' => $id, 'username' => $username], 201);
+    }
+
+    private static function mutateUser(string $id, string $method, array $auth): never
+    {
+        $db = Database::get();
+        $st = $db->prepare('SELECT * FROM users WHERE id = ? OR username = ?');
+        $st->execute([$id, $id]);
+        $u = $st->fetch();
+        if (!$u) Response::error('Usuario no encontrado', 404);
+
+        if ($method === 'DELETE') {
+            if ($u['id'] === ($auth['sub'] ?? '')) {
+                Response::error('No podés eliminar tu propio usuario', 400);
+            }
+            $db->prepare('DELETE FROM users WHERE id = ?')->execute([$u['id']]);
+            Response::json(['deleted' => true]);
+        }
+
+        $in = json_decode(file_get_contents('php://input') ?: '[]', true) ?: [];
+        if (array_key_exists('roles', $in)) {
+            self::guardSuperadmin($in['roles'], $auth);
+        }
+
+        $fields = [];
+        $params = [];
+        foreach (['email', 'full_name', 'username'] as $f) {
+            if (array_key_exists($f, $in)) { $fields[] = "$f = ?"; $params[] = $in[$f]; }
+        }
+        if (array_key_exists('active', $in)) { $fields[] = 'active = ?'; $params[] = (bool) $in['active']; }
+        if (array_key_exists('scope', $in)) { $fields[] = 'scope = ?'; $params[] = json_encode($in['scope']); }
+        if (!empty($in['password'])) { $fields[] = 'password_hash = ?'; $params[] = password_hash($in['password'], PASSWORD_BCRYPT); }
+
+        if ($fields) {
+            $params[] = $u['id'];
+            $db->prepare('UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
+        }
+        if (array_key_exists('roles', $in)) {
+            self::setRoles($u['id'], $in['roles']);
+        }
+        Response::json(['updated' => true, 'id' => $u['id']]);
+    }
+
+    /** Solo quien tiene 'server.configure' (superadmin) puede asignar el rol superadmin. */
+    private static function guardSuperadmin(array $roles, array $auth): void
+    {
+        if (in_array('superadmin', $roles, true) && !Permissions::has($auth, 'server.configure')) {
+            Response::error('Solo un superadmin puede asignar el rol superadmin', 403);
+        }
+    }
+
+    private static function setRoles(string $userId, array $roleNames): void
+    {
+        $db = Database::get();
+        $db->prepare('DELETE FROM user_roles WHERE user_id = ?')->execute([$userId]);
+        $st = $db->prepare('SELECT id FROM roles WHERE name = ?');
+        $ins = $db->prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)');
+        foreach ($roleNames as $name) {
+            $st->execute([$name]);
+            $r = $st->fetch();
+            if ($r) $ins->execute([$userId, $r['id']]);
+        }
     }
 
     // ---------- Invernaderos ----------
-    private static function greenhouses(?string $id, string $method): never
+    private static function greenhouses(?string $id, string $method, array $auth): never
     {
+        Permissions::require($auth, $method === 'POST' ? 'greenhouse.create' : 'greenhouse.read');
         $db = Database::get();
         if ($method === 'GET' && $id === null) {
             $rows = $db->query('SELECT * FROM greenhouses ORDER BY name')->fetchAll();
+            if (!Permissions::globalScope($auth)) {
+                $allowed = Permissions::scopedGreenhouses($auth);
+                $rows = array_values(array_filter($rows, fn($g) => in_array($g['name'], $allowed, true) || in_array($g['id'], $allowed, true)));
+            }
             Response::json($rows);
         }
         if ($method === 'POST' && $id === null) {
@@ -100,8 +295,9 @@ final class Api
     }
 
     // ---------- Dispositivos ----------
-    private static function devices(array $seg, string $method): never
+    private static function devices(array $seg, string $method, array $auth): never
     {
+        Permissions::require($auth, $method === 'GET' ? 'device.read' : 'device.configure');
         $db = Database::get();
         $id = $seg[1] ?? null;
 

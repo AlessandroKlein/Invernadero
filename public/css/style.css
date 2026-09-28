@@ -120,3 +120,51 @@ main h2, main h3 { margin: 12px 0 8px; }
   color: var(--text);
 }
 .error { color: var(--danger); font-size: .85rem; }
+
+.whoami { color: var(--muted); font-size: .85rem; margin-left: auto; margin-right: 14px; }
+
+nav { display: flex; flex-direction: column; gap: 4px; }
+nav a {
+  color: var(--text); text-decoration: none; padding: 9px 12px;
+  border-radius: 6px; background: var(--panel2); font-size: .92rem;
+}
+nav a:hover { outline: 1px solid var(--accent); }
+
+.view { width: 100%; }
+
+.toolbar { margin: 10px 0; }
+
+.table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.table th, .table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--panel2); }
+.table th { color: var(--muted); font-weight: 600; }
+.row-actions { display: flex; gap: 6px; }
+
+button.danger { background: var(--danger); color: #fff; }
+button.secondary { background: var(--panel2); color: var(--text); }
+
+.dev {
+  display: block; width: 100%; text-align: left; margin: 6px 0;
+  background: var(--panel2); color: var(--text);
+}
+.dev:hover { outline: 1px solid var(--accent); }
+
+.roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.role-card { background: var(--panel); border: 1px solid var(--panel2); border-radius: 8px; padding: 14px; }
+.role-card h3 { margin: 0 0 4px; }
+.role-card p { font-size: .8rem; color: var(--muted); }
+
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.modal-box { width: 420px; max-width: 94vw; max-height: 90vh; overflow: auto; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+.lbl { color: var(--muted); font-size: .8rem; margin-top: 8px; }
+.check { display: flex; align-items: center; gap: 6px; font-size: .9rem; margin-top: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: var(--panel2); border: 1px solid var(--panel2);
+  padding: 5px 10px; border-radius: 999px; font-size: .8rem; cursor: pointer;
+}
+.chip:has(input:checked) { background: var(--accent); color: #06251b; border-color: var(--accent); }
+.chip input { display: none; }

@@ -11,7 +11,7 @@
 <body>
   <!-- Login -->
   <div id="login" class="card center hidden">
-    <h1>Invernadero</h1>
+    <h1>🌱 Invernadero</h1>
     <p>Servidor central</p>
     <input id="login-user" type="text" placeholder="Usuario" value="admin">
     <input id="login-pass" type="password" placeholder="Contraseña" value="password">
@@ -23,32 +23,65 @@
   <div id="app" class="hidden">
     <header>
       <span class="brand">🌱 Invernadero · Servidor Central</span>
-      <button id="logout">Salir</button>
+      <span id="whoami" class="whoami"></span>
+      <button id="logout" class="secondary">Salir</button>
     </header>
     <div class="layout">
       <aside id="sidebar">
-        <h2>Dispositivos</h2>
-        <ul id="device-list"></ul>
+        <nav id="nav"></nav>
       </aside>
       <main id="content">
-        <div id="placeholder">Seleccioná un dispositivo para ver su detalle.</div>
-        <section id="detail" class="hidden">
-          <h2 id="detail-title"></h2>
+        <section id="view-devices" class="view hidden">
+          <h2>Dispositivos</h2>
+          <div id="device-list"></div>
           <div id="device-meta" class="meta"></div>
-
           <h3>Sensores</h3>
           <div id="sensors" class="grid"></div>
-
           <h3>Actuadores</h3>
           <div id="actuators" class="grid"></div>
-
           <h3>Alarmas</h3>
           <ul id="alarms"></ul>
+        </section>
 
-          <h3>Histórico</h3>
-          <div class="chart-wrap"><canvas id="chart"></canvas></div>
+        <section id="view-users" class="view hidden">
+          <h2>Usuarios</h2>
+          <div class="toolbar">
+            <button id="new-user">+ Nuevo usuario</button>
+          </div>
+          <table class="table" id="users-table">
+            <thead>
+              <tr><th>Usuario</th><th>Nombre</th><th>Roles</th><th>Estado</th><th>Último acceso</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section id="view-roles" class="view hidden">
+          <h2>Roles y permisos</h2>
+          <div id="roles-list" class="roles"></div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- Modal usuario -->
+  <div id="user-modal" class="modal hidden">
+    <div class="modal-box card">
+      <h2 id="user-modal-title">Nuevo usuario</h2>
+      <input id="u-username" type="text" placeholder="Usuario">
+      <input id="u-email" type="email" placeholder="Email">
+      <input id="u-fullname" type="text" placeholder="Nombre completo">
+      <input id="u-password" type="password" placeholder="Contraseña (mín 6)">
+      <label class="check"><input id="u-active" type="checkbox" checked> Activo</label>
+      <label class="lbl">Roles</label>
+      <div id="u-roles" class="chips"></div>
+      <label class="lbl">Alcance (greenhouses, separados por coma; * = todos)</label>
+      <input id="u-scope" type="text" placeholder="*" value="*">
+      <div class="modal-actions">
+        <button id="u-cancel" class="secondary">Cancelar</button>
+        <button id="u-save">Guardar</button>
+      </div>
+      <p id="u-err" class="error"></p>
     </div>
   </div>
 

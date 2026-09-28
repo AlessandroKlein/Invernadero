@@ -5,21 +5,41 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ------------------------- Usuarios y roles -------------------------
+-- ------------------------- RBAC: roles, permisos, usuarios -------------------------
 CREATE TABLE roles (
     id          SERIAL PRIMARY KEY,
-    name        VARCHAR(40)  NOT NULL UNIQUE,   -- admin, operator, viewer, maintenance
+    name        VARCHAR(40)  NOT NULL UNIQUE,
     description TEXT
+);
+
+CREATE TABLE permissions (
+    id          SERIAL PRIMARY KEY,
+    code        VARCHAR(60)  NOT NULL UNIQUE,
+    description TEXT
+);
+
+CREATE TABLE role_permissions (
+    role_id       INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INTEGER NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
 );
 
 CREATE TABLE users (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    role_id       INTEGER      NOT NULL REFERENCES roles(id),
     username      VARCHAR(80)  NOT NULL UNIQUE,
     email         VARCHAR(160) UNIQUE,
+    full_name     VARCHAR(160),
     password_hash VARCHAR(255) NOT NULL,
     active        BOOLEAN      NOT NULL DEFAULT TRUE,
+    scope         JSONB        NOT NULL DEFAULT '{"greenhouses": ["*"]}',
+    last_login    TIMESTAMPTZ,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_roles (
+    user_id UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
 );
 
 -- ------------------------- Invernaderos y zonas -------------------------
