@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invernadero · Frontend Style Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f172a; --panel:#1e293b; --panel2:#334155;
+  --text:#e2e8f0; --muted:#94a3b8; --accent:#22c55e;
+  --accent-dim:#16a34a; --warn:#f59e0b; --danger:#ef4444;
+  --ink:#0b1120; --line:rgba(148,163,184,.16);
+  --display:"Fraunces",Georgia,serif; --mono:"JetBrains Mono",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:radial-gradient(1200px 600px at 80% -10%, rgba(34,197,94,.08), transparent 60%), var(--ink);
+  color:var(--text); -webkit-font-smoothing:antialiased;
+}
+.sg-top{
+  position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;
+  padding:14px 24px;background:rgba(11,17,32,.82);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+}
+.sg-logo{display:flex;align-items:center;gap:10px}
+.sg-logo .mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:1.1rem;background:linear-gradient(145deg,var(--accent),var(--accent-dim));color:#06251b}
+.sg-logo h1{font-family:var(--display);font-weight:900;font-size:1.15rem;margin:0}
+.sg-logo small{display:block;font-family:var(--mono);font-size:.62rem;color:var(--muted);font-weight:400}
+.sg-pill{margin-left:auto;font-family:var(--mono);font-size:.66rem;color:var(--muted);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
+.sg-layout{display:flex;max-width:1280px;margin:0 auto}
+.sg-side{width:240px;flex-shrink:0;padding:28px 16px;position:sticky;top:64px;height:calc(100vh - 64px);overflow:auto}
+.sg-side h2{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px 8px}
+.sg-nav{display:flex;flex-direction:column;gap:3px}
+.sg-nav a{color:var(--text);text-decoration:none;font-size:.86rem;padding:8px 12px;border-radius:7px;border:1px solid transparent}
+.sg-nav a:hover{background:var(--panel);border-color:var(--line)}
+.sg-nav a.on{background:var(--panel);border-color:rgba(34,197,94,.4);color:var(--accent)}
+.sg-main{flex:1;min-width:0;padding:34px 40px 90px}
+.sg-head{margin-bottom:34px}
+.sg-head h2{font-family:var(--display);font-weight:900;font-size:clamp(1.8rem,4vw,2.7rem);margin:0 0 8px;line-height:1.05}
+.sg-head p{color:var(--muted);max-width:640px;line-height:1.6;margin:0}
+section.sg{scroll-margin-top:84px;margin-bottom:52px}
+section.sg > h3{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:0 0 6px;display:flex;align-items:baseline;gap:10px}
+section.sg > h3 .idx{font-family:var(--mono);font-size:.7rem;color:var(--accent)}
+section.sg > p.lead{color:var(--muted);margin:0 0 18px;font-size:.9rem}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.swatch{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.swatch .c{height:64px}
+.swatch .meta{padding:9px 11px}
+.swatch .meta b{display:block;font-size:.82rem}
+.swatch .meta code{font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;margin-top:14px}
+.demo.flush{padding:0;overflow:hidden}
+.demo-label{font-family:var(--mono);font-size:.64rem;color:var(--muted);margin:18px 0 6px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hidden{display:none !important}
+
+/* --- componentes reales (reproducidos fielmente) --- */
+header.appbar{display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--panel2)}
+.brand{font-weight:700;font-size:1.05rem}
+.whoami{color:var(--muted);font-size:.85rem;margin-left:auto}
+button{background:var(--accent);border:0;color:#06251b;font-weight:600;padding:8px 14px;border-radius:6px;cursor:pointer;font-family:inherit}
+button:hover{filter:brightness(1.1)}
+button.secondary{background:var(--panel2);color:var(--text)}
+button.danger{background:var(--danger);color:#fff}
+button.dev{display:block;width:100%;text-align:left;margin:6px 0;background:var(--panel2);color:var(--text)}
+button.dev:hover{outline:1px solid var(--accent)}
+.aside-demo{width:240px;background:var(--panel);padding:16px;border-right:1px solid var(--panel2)}
+.aside-demo h4{margin:0 0 10px;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+nav.sidenav{display:flex;flex-direction:column;gap:4px}
+nav.sidenav a{color:var(--text);text-decoration:none;padding:9px 12px;border-radius:6px;background:var(--panel2);font-size:.92rem}
+nav.sidenav a:hover{outline:1px solid var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{background:var(--panel);border-radius:8px;padding:12px;border:1px solid var(--panel2)}
+.tile .label{color:var(--muted);font-size:.78rem}
+.tile .value{font-size:1.25rem;font-weight:700}
+.tile .unit{color:var(--muted);font-size:.8rem}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%}
+.dot.online{background:var(--accent)}
+.dot.offline{background:var(--muted)}
+.dot.alarm{background:var(--danger)}
+.dot.warn{background:var(--warn)}
+ul.alarms{list-style:none;padding:0;margin:0}
+ul.alarms li{background:var(--panel);border-left:3px solid var(--warn);padding:8px 12px;margin-bottom:6px;border-radius:4px;font-size:.9rem}
+ul.alarms li.critical{border-left-color:var(--danger)}
+.table{width:100%;border-collapse:collapse;font-size:.9rem}
+.table th,.table td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--panel2)}
+.table th{color:var(--muted);font-weight:600}
+.row-actions{display:flex;gap:6px}
+.roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.role-card{background:var(--panel);border:1px solid var(--panel2);border-radius:8px;padding:14px}
+.role-card h4{margin:0 0 4px}
+.role-card p{font-size:.8rem;color:var(--muted);margin:4px 0}
+.role-card .perms{font-family:var(--mono);font-size:.7rem;color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--panel2);border:1px solid var(--panel2);padding:5px 10px;border-radius:999px;font-size:.8rem;cursor:pointer}
+.chip:has(input:checked){background:var(--accent);color:#06251b;border-color:var(--accent)}
+.chip input{display:none}
+.card{max-width:340px;padding:28px;background:var(--panel);border-radius:10px;display:flex;flex-direction:column;gap:10px}
+.card h1{margin:0;font-size:1.4rem}
+.card input{padding:10px;border-radius:6px;border:1px solid var(--panel2);background:var(--bg);color:var(--text);font-family:inherit}
+.error{color:var(--danger);font-size:.85rem}
+.lbl{color:var(--muted);font-size:.8rem;margin-top:8px}
+.check{display:flex;align-items:center;gap:6px;font-size:.9rem;margin-top:8px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal-box{width:420px;max-width:94vw;max-height:90vh;overflow:auto}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:16px;margin:0}
+legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
+.spec-table td:first-child{font-family:var(--mono);font-size:.78rem;color:var(--muted);white-space:nowrap;padding-right:18px}
+.spec-table td:last-child{font-size:.9rem}
+@media(max-width:860px){
+  .sg-layout{flex-direction:column}
+  .sg-side{width:100%;position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px}
+  .sg-nav{flex-direction:row;flex-wrap:wrap}
+  .sg-main{padding:24px 18px 70px}
+}
+</style>
+</head>
+<body>
+<header class="sg-top">
+  <div class="sg-logo">
+    <span class="mark">🌱</span>
+    <div><h1>Invernadero</h1><small>Frontend Style Guide</small></div>
+  </div>
+  <span class="sg-pill">tema oscuro · acento botánico · web + servidor</span>
+</header>
+
+<div class="sg-layout">
+  <aside class="sg-side">
+    <h2>Índice</h2>
+    <nav class="sg-nav" id="nav"></nav>
+  </aside>
+
+  <main class="sg-main">
+    <div class="sg-head">
+      <h2>Un solo lenguaje visual,<br>dos superficies.</h2>
+      <p>Galería de los estilos y componentes del frontend del proyecto
+      <strong>Invernadero</strong>. Reproduce fielmente los tokens de color, la
+      tipografía y los componentes usados en el <em>dashboard local del ESP32</em>
+      (web embebida) y en el <em>dashboard central del servidor</em> (RBAC, PHP + PostgreSQL).</p>
+    </div>
+
+    <section class="sg" id="s-palette">
+      <h3><span class="idx">01</span> Paleta de color</h3>
+      <p class="lead">Variables CSS <code>--bg / --panel / --panel2 / --text / --muted / --accent / --warn / --danger</code>.</p>
+      <div class="swatches">
+        <div class="swatch"><div class="c" style="background:#0f172a"></div><div class="meta"><b>bg</b><code>#0f172a</code></div></div>
+        <div class="swatch"><div class="c" style="background:#1e293b"></div><div class="meta"><b>panel</b><code>#1e293b</code></div></div>
+        <div class="swatch"><div class="c" style="background:#334155"></div><div class="meta"><b>panel2</b><code>#334155</code></div></div>
+        <div class="swatch"><div class="c" style="background:#e2e8f0"></div><div class="meta"><b>text</b><code>#e2e8f0</code></div></div>
+        <div class="swatch"><div class="c" style="background:#94a3b8"></div><div class="meta"><b>muted</b><code>#94a3b8</code></div></div>
+        <div class="swatch"><div class="c" style="background:#22c55e"></div><div class="meta"><b>accent</b><code>#22c55e</code></div></div>
+        <div class="swatch"><div class="c" style="background:#f59e0b"></div><div class="meta"><b>warn</b><code>#f59e0b</code></div></div>
+        <div class="swatch"><div class="c" style="background:#ef4444"></div><div class="meta"><b>danger</b><code>#ef4444</code></div></div>
+      </div>
+    </section>
+
+    <section class="sg" id="s-type">
+      <h3><span class="idx">02</span> Tipografía</h3>
+      <p class="lead">Títulos de marca con <em>Fraunces</em> (serif con carácter), datos técnicos y clases en <em>JetBrains Mono</em>, y el cuerpo en <em>system-ui</em>.</p>
+      <div class="demo">
+        <div style="font-family:var(--display);font-weight:900;font-size:2.4rem;line-height:1.05">Título de marca</div>
+        <div style="font-family:var(--display);font-weight:600;font-size:1.5rem;margin-top:6px">Subtítulo de sección</div>
+        <div style="font-family:var(--mono);font-size:.8rem;color:var(--muted);margin-top:8px">SENSOR: TEMP-01 · UNIT: °C · STATUS: GOOD</div>
+        <p style="color:var(--muted);max-width:560px;margin-top:10px;line-height:1.6">Texto de cuerpo: la interfaz usa la pila <code>system-ui, -apple-system, "Segoe UI", Roboto</code> para garantizar legibilidad y consistencia nativa en cada plataforma.</p>
+      </div>
+    </section>
+
+    <section class="sg" id="s-buttons">
+      <h3><span class="idx">03</span> Botones</h3>
+      <p class="lead">Primario (acción), secundario (neutral) y peligroso (destructivo). Todos con <code>border-radius:6px</code> y hover por brillo.</p>
+      <div class="demo"><div class="row">
+        <button>Ingresar</button>
+        <button class="secondary">Cancelar</button>
+        <button class="danger">Eliminar</button>
+        <button disabled>Deshabilitado</button>
+      </div>
+      <div class="demo-label">Botón de dispositivo (lista lateral)</div>
+      <button class="dev">GH-001 · Invernadero Principal</button>
+      </div>
+    </section>
+    <section class="sg" id="s-dots">
+      <h3><span class="idx">04</span> Estados</h3>
+      <p class="lead">Indicadores de presencia (<code>.dot</code>) para dispositivos, actuadores y alarmas.</p>
+      <div class="demo"><div class="row" style="gap:22px">
+        <span><span class="dot online"></span> En línea</span>
+        <span><span class="dot offline"></span> Desconectado</span>
+        <span><span class="dot warn"></span> Advertencia</span>
+        <span><span class="dot alarm"></span> Alarma</span>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-appbar">
+      <h3><span class="idx">05</span> Barra de aplicación</h3>
+      <p class="lead">Cabecera superior con marca, identidad del usuario (<code>.whoami</code>) y acción de salida.</p>
+      <div class="demo flush"><header class="appbar">
+        <span class="brand">🌱 Invernadero · Servidor Central</span>
+        <span class="whoami">admin · SUPERADMIN</span>
+        <button class="secondary">Salir</button>
+      </header></div>
+    </section>
+
+    <section class="sg" id="s-nav">
+      <h3><span class="idx">06</span> Navegación lateral</h3>
+      <p class="lead">Sidebar con enlaces que filtran según permisos RBAC.</p>
+      <div class="demo flush"><div class="aside-demo">
+        <h4>Menú</h4>
+        <nav class="sidenav">
+          <a href="#">Dispositivos</a>
+          <a href="#">Usuarios</a>
+          <a href="#">Roles y permisos</a>
+          <a href="#">Históricos</a>
+        </nav>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-tiles">
+      <h3><span class="idx">07</span> Tarjetas de sensor</h3>
+      <p class="lead">Grilla adaptable (<code>.grid</code>) de <code>.tile</code> con etiqueta, valor y unidad.</p>
+      <div class="demo"><div class="grid">
+        <div class="tile"><div class="label">Temperatura</div><div class="value">24.6</div><div class="unit">°C</div></div>
+        <div class="tile"><div class="label">Humedad</div><div class="value">71</div><div class="unit">%</div></div>
+        <div class="tile"><div class="label">VPD</div><div class="value">0.87</div><div class="unit">kPa</div></div>
+        <div class="tile"><div class="label">Tanque</div><div class="value">76</div><div class="unit">%</div></div>
+        <div class="tile"><div class="label">Luz</div><div class="value">18200</div><div class="unit">lux</div></div>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-actuators">
+      <h3><span class="idx">08</span> Actuadores</h3>
+      <p class="lead">Estado con <code>.dot</code> y acción de conmutación manual.</p>
+      <div class="demo"><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+        <div class="tile"><div class="label">Bomba <span class="dot offline"></span></div><div class="value">OFF</div><div class="row" style="margin-top:8px"><button class="secondary" style="font-size:.8rem;padding:5px 10px">Encender</button></div></div>
+        <div class="tile"><div class="label">Ventilador <span class="dot online"></span></div><div class="value">100%</div><div class="row" style="margin-top:8px"><button class="secondary" style="font-size:.8rem;padding:5px 10px">Apagar</button></div></div>
+        <div class="tile"><div class="label">Válvula 1 <span class="dot online"></span></div><div class="value">ON</div><div class="row" style="margin-top:8px"><button class="secondary" style="font-size:.8rem;padding:5px 10px">Apagar</button></div></div>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-alarms">
+      <h3><span class="idx">09</span> Alarmas</h3>
+      <p class="lead">Listado con borde izquierdo: <code>.critical</code> para severidad alta.</p>
+      <div class="demo"><ul class="alarms">
+        <li>[WARN] Sensor de humedad sin respuesta</li>
+        <li class="critical">[CRIT] Bomba activa sin caudal</li>
+        <li>[WARN] RS485: timeout en slave 10</li>
+      </ul></div>
+    </section>
+
+    <section class="sg" id="s-table">
+      <h3><span class="idx">10</span> Tabla de datos</h3>
+      <p class="lead">Tabla de administración (usuarios) con acciones por fila.</p>
+      <div class="demo"><table class="table">
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Roles</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>juan</td><td>Juan Pérez</td><td>OPERATOR</td><td>✅</td><td>28/09/2026 14:32</td><td><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
+          <tr><td>admin</td><td>Admin</td><td>SUPERADMIN</td><td>✅</td><td>28/09/2026 08:01</td><td><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section class="sg" id="s-roles">
+      <h3><span class="idx">11</span> Tarjetas de rol</h3>
+      <p class="lead">Los 8 roles del RBAC del servidor central.</p>
+      <div class="demo"><div class="roles">
+        <div class="role-card"><h4>SUPERADMIN</h4><p>Acceso global</p><div class="perms">device.* user.* audit.read</div></div>
+        <div class="role-card"><h4>ADMIN</h4><p>Administra una organización</p><div class="perms">device.* sensor.* actuator.*</div></div>
+        <div class="role-card"><h4>INTEGRATOR</h4><p>Configuración técnica</p><div class="perms">hardware.configure modbus.*</div></div>
+        <div class="role-card"><h4>OPERATOR</h4><p>Operación diaria</p><div class="perms">device.control actuator.control</div></div>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-chips">
+      <h3><span class="idx">12</span> Chips de selección</h3>
+      <p class="lead">Selector de roles múltiples (checkbox oculto dentro de <code>.chip</code>).</p>
+      <div class="demo"><div class="chips">
+        <label class="chip"><input type="checkbox" checked> OPERATOR</label>
+        <label class="chip"><input type="checkbox"> SUPERVISOR</label>
+        <label class="chip"><input type="checkbox"> MAINTENANCE</label>
+        <label class="chip"><input type="checkbox"> AUDITOR</label>
+        <label class="chip"><input type="checkbox"> VIEWER</label>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-login">
+      <h3><span class="idx">13</span> Login</h3>
+      <p class="lead">Tarjeta <code>.card</code> con campos y mensaje de error.</p>
+      <div class="demo" style="display:flex;justify-content:center;padding:30px"><div class="card">
+        <h1>🌱 Invernadero</h1>
+        <p style="margin:0;color:var(--muted);font-size:.9rem">Servidor central</p>
+        <input type="text" placeholder="Usuario" value="admin">
+        <input type="password" placeholder="Contraseña" value="password">
+        <button>Ingresar</button>
+        <p class="error">—</p>
+      </div></div>
+    </section>
+
+    <section class="sg" id="s-modal">
+      <h3><span class="idx">14</span> Modal</h3>
+      <p class="lead">Diálogo superpuesto para formularios (nuevo/editar usuario).</p>
+      <div class="demo"><div class="row"><button onclick="showModal()">Abrir modal</button></div></div>
+    </section>
+
+    <section class="sg" id="s-forms">
+      <h3><span class="idx">15</span> Formularios</h3>
+      <p class="lead">Campos, etiquetas (<code>.lbl</code>) y checkboxes (<code>.check</code>).</p>
+      <div class="demo"><fieldset><legend>Configuración</legend>
+        <input type="text" placeholder="Nombre" value="Invernadero Principal" style="width:100%">
+        <label class="lbl">Alcance (greenhouses, separados por coma; * = todos)</label>
+        <input type="text" placeholder="*" value="*" style="width:100%">
+        <label class="check"><input type="checkbox" checked> Activo</label>
+      </fieldset></div>
+    </section>
+    <section class="sg" id="s-device">
+      <h3><span class="idx">16</span> Composición: vista de dispositivo</h3>
+      <p class="lead">Ensamblado real de los componentes en una sola pantalla.</p>
+      <div class="demo flush">
+        <header class="appbar">
+          <span class="brand">🌱 Invernadero · Servidor Central</span>
+          <span class="whoami">admin · SUPERADMIN</span>
+          <button class="secondary">Salir</button>
+        </header>
+        <div style="display:flex">
+          <div class="aside-demo" style="width:220px">
+            <h4>Dispositivos</h4>
+            <button class="dev">GH-001 · Principal</button>
+            <button class="dev">GH-002 · Vivero</button>
+            <button class="dev">GH-003 · Hidroponía</button>
+          </div>
+          <div style="flex:1;padding:18px;min-width:0">
+            <div class="meta">FW 3.4.0 · HW ESP32-GH-V1 rev0 · RUN</div>
+            <h3 style="margin:4px 0 8px;font-size:1rem;color:var(--accent)">Sensores</h3>
+            <div class="grid">
+              <div class="tile"><div class="label">Temperatura</div><div class="value">24.6</div><div class="unit">°C</div></div>
+              <div class="tile"><div class="label">Humedad</div><div class="value">71</div><div class="unit">%</div></div>
+              <div class="tile"><div class="label">VPD</div><div class="value">0.87</div><div class="unit">kPa</div></div>
+              <div class="tile"><div class="label">Tanque</div><div class="value">76</div><div class="unit">%</div></div>
+            </div>
+            <h3 style="margin:14px 0 8px;font-size:1rem;color:var(--accent)">Alarmas</h3>
+            <ul class="alarms"><li class="critical">[CRIT] Bomba activa sin caudal</li></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sg" id="s-esp">
+      <h3><span class="idx">17</span> Dashboard local del ESP32</h3>
+      <p class="lead">Variante embebida (<code>WebAssets.hpp</code>): misma paleta, layout de una columna, cards compactas y login con token.</p>
+      <div class="demo" style="max-width:560px;margin:14px auto 0">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h1 style="font-size:1.2rem;margin:0">Invernadero</h1>
+          <button class="secondary" style="font-size:.8rem">Iniciar sesión</button>
+        </div>
+        <div style="color:var(--muted);font-size:.85rem;margin-bottom:14px">ID: GH-001 · Modo: AUTO</div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+          <div class="tile"><div class="label">Temperatura</div><div class="value">24.6°</div></div>
+          <div class="tile"><div class="label">Humedad</div><div class="value">71%</div></div>
+          <div class="tile"><div class="label">Suelo Z1</div><div class="value">54%</div></div>
+          <div class="tile"><div class="label">Tanque</div><div class="value">76%</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--panel);border-radius:10px;padding:10px 14px;margin-top:10px">
+          <span>Ventilador</span><span class="dot online"></span>
+          <button class="secondary" style="font-size:.8rem">OFF</button>
+        </div>
+      </div>
+    </section>
+
+    <footer style="border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:.82rem;font-family:var(--mono)">
+      Invernadero · Frontend Style Guide · tokens compartidos entre web local (ESP32) y servidor central.
+    </footer>
+  </main>
+</div>
+
+<!-- Modal demo -->
+<div id="demo-modal" class="modal hidden" onclick="if(event.target===this)hideModal()">
+  <div class="modal-box card">
+    <h2>Nuevo usuario</h2>
+    <input type="text" placeholder="Usuario">
+    <input type="email" placeholder="Email">
+    <input type="text" placeholder="Nombre completo">
+    <input type="password" placeholder="Contraseña (mín 6)">
+    <label class="check"><input type="checkbox" checked> Activo</label>
+    <label class="lbl">Roles</label>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" checked> OPERATOR</label>
+      <label class="chip"><input type="checkbox"> SUPERVISOR</label>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="hideModal()">Cancelar</button>
+      <button onclick="hideModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showModal(){ document.getElementById('demo-modal').classList.remove('hidden'); }
+function hideModal(){ document.getElementById('demo-modal').classList.add('hidden'); }
+(function(){
+  const nav = document.getElementById('nav');
+  const links = [...document.querySelectorAll('section.sg')].map(s => {
+    const t = s.querySelector('h3').textContent.replace(/^\d+\s*/,'').trim();
+    const a = document.createElement('a');
+    a.href = '#' + s.id; a.textContent = t; nav.appendChild(a); return a;
+  });
+  const obs = new IntersectionObserver((es) => {
+    es.forEach(e => {
+      if(e.isIntersecting){
+        links.forEach(l => l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id));
+      }
+    });
+  }, { rootMargin:'-40% 0px -55% 0px' });
+  document.querySelectorAll('section.sg').forEach(s => obs.observe(s));
+})();
+</script>
+</body>
+</html>
+
+
+
