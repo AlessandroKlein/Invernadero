@@ -1,113 +1,326 @@
-# Dudas, decisiones y correcciones del proyecto
+# Decisiones de Arquitectura — v2.0
 
-> Fecha: 2026-09-28 · Para revisar y completar por el autor.
-
-Este documento reúne (1) la **corroboración** del `README.md` (qué está
-implementado y qué falta), (2) las **decisiones de arquitectura** tomadas para el
-**servidor central** y (3) las **dudas/correcciones conceptuales** detectadas en la
-idea principal para que sean resueltas.
-
----
-
-## 1. Corroboración del README (286 secciones)
-
-### 1.1 Implementado en el firmware (v3.1.0)
-
-- **Sensores**: SHT31/AHT20 (§7), DS18B20 (§8), humedad de suelo + ADS1115 (§9-10),
-  BH1750 (§11), CO₂ SCD4x (§13), nivel de tanque + flotadores (§14), caudal (§15),
-  lluvia (§16), viento (§69), pH analógico + Modbus (§18), EC (§19).
-- **Actuadores/expansión**: 74HC595 con Soft-PWM (§20-21), MCP23017 (§23),
-  entradas de seguridad (§25), control techo/ventanas (§26).
-- **Control**: histéresis de clima (§31), humedad (§32), suelo (§33), secuencia de
-  riego + protección de bomba (§34-36), iluminación (§29-30), techo (§26, 68, 70).
-- **Configuración**: por web (§37-40), JSON (§82), valores por defecto (§84),
-  factory reset (§85), config versionada + rollback (§104), niveles de reset (§155).
-- **Red**: WiFi/AP/mDNS/NTP (§86, 105-108), MQTT (§45), REST (§41-43), WebSocket (§44).
-- **Sistema**: watchdog (§58), OTA + rollback (§59, 146), identidad/capacidades
-  (§50, 166), máquina de estados (§175), calidad de datos (§176), causa de reinicio
-  (§150), RS485 stats + scan + herramienta Modbus (§177-178), simulación (§191).
-
-### 1.2 Pendiente (el propio README lo etapa como V8/V9/V10)
-
-| Área | Secciones | Estado |
-|------|-----------|--------|
-| Motor de configuración tipo Tasmota (bus/hardware manager, GPIO/SPI/I²C configurables, registros de sensores/actuadores, rule engine) | 201-236, 280-286 | ❌ Pendiente (V8) |
-| Ethernet W5500 y administrador de buses SPI | 87, 109-110, 247-249 | ❌ Pendiente |
-| Almacenamiento LittleFS / SD | 212-216 | ❌ Pendiente (parcial: NVS + RAM) |
-| Entradas 74HC165 | 227-228 | ❌ Pendiente |
-| ADCs MCP3008/3208/ADS8688/ADS8332 | 250-252 | ❌ Pendiente (solo ADS1115) |
-| Motor de reglas configurable | 121, 237 | ❌ Pendiente |
-| Estación meteorológica externa (REST/MQTT/Modbus) | 244-246 | ❌ Pendiente |
-| Device Shadow / provisioning / commissioning | 116-117, 140, 169, 271, 279 | ❌ Pendiente |
-| Certificados / TLS mutuo | 153 | ❌ Pendiente |
-| **Servidor central (PHP + PostgreSQL + MQTT + dashboard)** | 47-49, 130-145, 269-273 | ✅ **En esta entrega** |
+> **Tipo:** Documento de arquitectura | **Estado:** Cerrado | **Fecha:** 2026-09-28
+>
+> Sustituye a la versión 1.0 («Dudas y decisiones abiertas»). Las dudas pendientes
+> quedan **resueltas** aquí como decisiones oficiales. Cualquier implementación
+> posterior (firmware o servidor) debe respetar estas definiciones para no tener que
+> rehacer la base de datos, la API, MQTT o el sistema de configuración.
 
 ---
 
-## 2. Decisiones del servidor central (implementadas en `server/`)
+## 1. Principio rector
 
-1. **Stack**: PHP 8.2 + PostgreSQL 16 + Mosquitto (MQTT) + dashboard HTML/CSS/JS,
-   orquestado con Docker Compose. Se eligió PHP por pedido explícito.
-2. **API REST** versionada (`/api/v1/...`) con front controller `public/index.php`.
-3. **Autenticación**: JWT (Bearer token) vía `firebase/php-jwt`.
-4. **Bridge MQTT → PostgreSQL**: worker PHP CLI (`mqtt/worker.php`) con
-   `php-mqtt/client` que se suscribe a `greenhouse/+/#` y persiste.
-5. **Tiempo real en el dashboard**: MQTT over WebSocket (Mosquitto en puerto 9001)
-   con `mqtt.js` (CDN), con `polling` a la API como fallback.
-6. **Device Shadow**: tabla `device_shadow` con `desired` / `reported` (JSONB).
-7. **Telemetría**: tabla `sensor_readings` con índice `(sensor_id, timestamp)` y
-   retención configurable (ver dudas abajo).
+> **El servidor administra y coordina. El ESP32 controla y protege.**
+> El servidor puede desaparecer; el invernadero **no** debe dejar de funcionar.
+
+Esta es una **invariante del sistema**, no una funcionalidad opcional (ver decisión 11).
 
 ---
 
-## 3. Dudas y decisiones abiertas (para que completes)
+## 2. Alcance y frontera de versiones
 
-1. **Retención de históricos** (§160): ¿retener crudo 30 días y luego agregar a
-   5 min/1 h? ¿Usar particionado de PostgreSQL o un job de borrado? *(Propuesto:
-   tabla particionada por mes + job de agregación.)*
-2. **Métricas de VPD / variables calculadas** (§235): ¿calcular VPD en el ESP32 o
-   en el servidor? *(Propuesto: servidor, a partir de T y RH ya almacenadas.)*
-3. **`sunrise`/`sunset`** (§239): requiere latitud/longitud. ¿Agregar campos
-   `latitude`/`longitude` a `greenhouses`? *(Propuesto: sí.)*
-4. **Estación meteorológica** (§244-246): ¿fuente concreta (Open-Meteo, estación
-   Davis/Modbus, MQTT propio)? Definir esquema de tópicos y autenticación.
-5. **AP con SSID derivado de MAC** (§253-254): hoy el AP es fijo
-   (`Invernadero-AP`/`invernadero`). ¿Cambiar a `INVERNADERO-XXXXXX` + clave derivada
-   del UID? *(Propuesto: sí, en la próxima versión de firmware.)*
-6. **Escaneo WiFi y `esp_wifi_scan`** (§107): hoy no está expuesto en la API local.
-   ¿Es prioritario? *(Propuesto: media.)*
-7. **Autenticación de la web local del ESP32** (§154): hoy es abierta. ¿Agregar
-   usuario/clave local? *(Propuesto: sí, rol único admin por defecto.)*
-8. **TLS en el ESP32** (§153): requiere CA + certificado por dispositivo. ¿Necesario
-   para v1 o solo en LAN? *(Propuesto: LAN primero, TLS después.)*
-9. **MQTT central vs local**: el ESP32 publica en `greenhouse/<id>/...`; el servidor
-   debe conocer el `device_id` de antemano o registrarlo al primer mensaje.
-   *(Propuesto: auto-registro por UID al recibir `/state`.)*
-10. **Cifrado de contraseñas en el servidor**: se usa `password_hash()` (bcrypt).
-    ¿Necesitás OAuth/2FA? *(Propuesto: no en v1.)*
+| Bloque | Estado |
+|--------|--------|
+| Firmware de campo v3.1.0 (secciones 1–200 del `README.md`) | ✅ Implementado |
+| Servidor central (`server/`: PHP + PostgreSQL + MQTT + dashboard) | ✅ Implementado |
+| Secciones 201–286 (config engine tipo Tasmota, W5500, SD, 74HC165, ADCs extra, rule engine, estación meteorológica, multi-board, provisioning) | ⏳ Roadmap V8/V9/V10 — **no implementado** |
 
 ---
 
-## 4. Correcciones conceptuales detectadas (investigación)
+## 3. Resumen de decisiones cerradas
 
-1. **Soft-PWM sobre 74HC595 (§20-21)**: el 74HC595 no genera PWM real; es un
-   desplazamiento de bits refrescado por software. Solo sirve para conmutación de
-   potencia de baja frecuencia (100 Hz–1 kHz). Para PWM real usar LEDC (hardware)
-   o un driver PWM dedicado (TLC5947). El README ya lo aclara; se reafirma.
-2. **"Compartibles con N8 o N16" (§6)**: N8 = Flash 8 MB, N16 = 16 MB. El
-   ESP32-WROOM-32 estándar trae 4 MB. Ya se proveen tablas de partición
-   `default_8MB.csv` / `default_16MB.csv`. Con 4 MB el firmware actual va al ~73 %.
-3. **Sensor interno de temperatura (§206)**: el ESP32 clásico **no** expone un
-   sensor interno utilizable por Arduino; sí lo tienen ESP32-S3/C3/C5/C6. El README
-   lo indica correctamente; debe tratarse como diagnóstico, no medición ambiental.
-4. **TWAI/CAN (§88)**: el ESP32 tiene el periférico TWAI, pero **requiere un
-   transceptor externo** (ej. SN65HVD230). No está implementado.
-5. **Contador de pulsos (PCNT)**: el ESP32 dispone de PCNT por hardware; el firmware
-   actual usa interrupciones + `millis()`. Para caudal/lluvia/viento a alta frecuencia
-   convendría migrar a PCNT.
-6. **Modbus RTU no tiene autodescubrimiento universal (§115-116, 278)**: correcto;
-   se resuelve con UID propio + commissioning. A implementar.
-7. **ADC de pH/EC (§18)**: el ADC interno del ESP32 es ruidoso y no lineal en los
-   extremos; usar ADS1115 es correcto. Calibración pH 4/7/10 almacenada en NVS.
-8. **Lux ≠ PPFD (§12)**: correcto; no asumir equivalencia.
-9. **VPD** requiere T y RH; fórmula de Tetens/Magnus para presión de vapor.
+| # | Decisión |
+|---|----------|
+| 1 | PostgreSQL particionado por mes + agregación progresiva + retención configurable |
+| 2 | Variables calculadas: local (automatización) + servidor (históricos/análisis) |
+| 3 | `latitude`/`longitude`/`elevation`/`timezone` por invernadero; sunrise/sunset local |
+| 4 | `WeatherManager` con fuentes REST / MQTT / Modbus (no una única) |
+| 5 | AP `INVERNADERO-XXXXXX` + contraseña de primera configuración almacenada (no derivada de MAC) |
+| 6 | Escaneo WiFi en la web local (prioridad V8) |
+| 7 | Autenticación local obligatoria + hardware avanzado protegido (ADMIN + PIN/botón) |
+| 8 | HTTP local inicialmente; TLS obligatorio para comunicación remota de producción |
+| 9 | Discovery automático sí; alta como dispositivo confiable solo tras aprobación/provisioning |
+| 10 | `password_hash()` (bcrypt/Argon2) + RBAC + arquitectura preparada para TOTP; sin OAuth en V1 |
+| 11 | Offline-first como invariante |
+| 12 | Device Shadow `desired`/`reported`/`actual` |
+| 13 | Configuración de hardware local-authoritative (solo lectura en servidor) |
+| 14 | Import/export con separación clonable / no clonable |
+| 15 | Configuración versionada con migraciones (`schema_version`) |
+| 16 | Manifest OTA por plataforma (targets) + validación de compatibilidad |
+
+---
+
+## 4. Decisiones detalladas
+
+### 4.1 Retención de históricos (§160)
+
+**PostgreSQL particionado por mes + agregación progresiva + retención configurable por
+instalación.** No se borran registros con un simple cron.
+
+```text
+sensor_readings_raw  →  crudo 0–30 días
+        │
+        ├── >30 días  →  agregación 5 min  (hasta 180 días)
+        └── >180 días →  agregación 1 h    (hasta 2 años / 730 días)
+agregación diaria → permanente (mientras haya espacio)
+```
+
+| Datos | Retención |
+|-------|-----------|
+| Crudos | 30 días |
+| Agregados 5 min | 180 días |
+| Agregados 1 h | 730 días (2 años) |
+| Diarios | 0 (sin expiración) |
+
+Configurable:
+
+```json
+{ "retention": { "raw_days": 30, "five_min_days": 180, "hour_days": 730, "daily_days": 0 } }
+```
+
+Cada medición conserva, como mínimo: `timestamp`, `device_id`, `sensor_id`, `value`,
+`unit`, `quality`, `status`, `source`, `sequence`.
+
+> **Impacto:** la tabla `sensor_readings` ya existe; se añadirán particionado por mes,
+> jobs de agregación y las columnas `source` / `sequence` / `status`.
+
+### 4.2 VPD y variables calculadas (§235)
+
+**Cálculo local para automatización + cálculo central para históricos/análisis.**
+
+- **ESP32:** calcula lo necesario para las reglas locales (VPD, punto de rocío,
+  promedios). La automatización **no** puede depender del servidor.
+- **Servidor:** recalcula para gráficos, estadísticas, comparación entre invernaderos,
+  informes y análisis.
+
+Concepto genérico `CalculatedVariable`: `VPD`, `DewPoint`, `TemperatureAverage`,
+`HumidityAverage`, `SoilMoistureAverage`, `WaterConsumption`, `PhotoperiodProgress`;
+posteriormente variables definidas por el usuario.
+
+### 4.3 Sunrise / Sunset (§239)
+
+**Sí a coordenadas por invernadero; el ESP32 calcula sunrise/sunset localmente.**
+
+Modelo `greenhouse`: `latitude`, `longitude`, `timezone`, `elevation`.
+
+```json
+{ "latitude": -31.4488, "longitude": -60.9317, "elevation": 40,
+  "timezone": "America/Argentina/Buenos_Aires" }
+```
+
+No depender de una API externa para conocer sunrise/sunset.
+
+> **Impacto:** `greenhouses` ya tiene `latitude` / `longitude` / `timezone`;
+> falta añadir `elevation`.
+
+### 4.4 Estación meteorológica externa (§244-246)
+
+**`WeatherManager` con tres fuentes (REST, MQTT, Modbus), no una única.**
+
+- **API** (Open-Meteo u otra): pronóstico y datos exteriores. Opcional, nunca requisito.
+- **MQTT** (estación propia): tópicos `weather/<station_id>/state`, `/status`,
+  `/availability`.
+- **Modbus RTU** (estación industrial): usa el mismo `ModbusManager` de los sensores
+  industriales.
+
+Las estaciones meteorológicas **no** se mezclan con `greenhouse/<device_id>/...`
+(son dispositivos conceptualmente distintos).
+
+Selección: `○ Ninguna · ○ API · ○ MQTT · ○ Modbus RTU · ○ Estación local`.
+
+### 4.5 AP con SSID derivado de identidad (§253-254)
+
+**SSID `INVERNADERO-XXXXXX` (últimos 3 bytes de MAC) + contraseña de primera
+configuración almacenada en NVS. La contraseña NO se deriva de la MAC** (la MAC no es
+un secreto). Luego el usuario puede definir una contraseña persistente.
+
+Recuperación: botón físico / código de recuperación / factory reset / mantenimiento.
+
+Modos: AP permanente, AP solo sin WiFi, o AP bajo demanda.
+
+> **Impacto:** hoy el AP es fijo (`Invernadero-AP` / `invernadero`); se cambiará en V8.
+
+### 4.6 Escaneo WiFi (§107)
+
+**Implementar (prioridad V8/V8.1).** La web local muestra `SSID`, `RSSI`, `canal`,
+`seguridad` y permite seleccionar red sin escribir el SSID. El escaneo **no** guarda
+contraseñas de redes descubiertas.
+
+### 4.7 Autenticación de la web local (§154)
+
+**Autenticación local obligatoria + hardware avanzado protegido.**
+
+Niveles: `VIEWER` / `OPERATOR` / `ADMIN` / `MAINTENANCE` (V1: `ADMIN`; luego roles).
+
+Separación:
+- Usuario normal: ver sensores/actuadores, cambiar modo, activar manualmente, ver alarmas.
+- **No** puede: GPIO, SPI, I²C, dirección Modbus, hardware, particiones.
+
+El hardware avanzado requiere `ADMIN + PIN` y/o `ADMIN + botón físico`.
+
+> **Impacto:** hoy la web local es abierta; se añadirá autenticación.
+
+### 4.8 TLS en ESP32 (§153)
+
+**HTTP local inicialmente; TLS obligatorio para comunicación remota/producción.**
+
+- Local (ESP32 ↔ navegador): HTTP en V1.
+- Remoto (ESP32 ↔ servidor vía Internet): MQTT sobre TLS (`mqtts://:8883`).
+
+No implementar infraestructura compleja de certificados sin provisioning. Futuro:
+`device_uid`, `device_certificate`, `private_key`, `CA` con flujo
+registro → autorización → certificado → conexión TLS. No enviar credenciales
+permanentes en texto plano.
+
+### 4.9 MQTT y registro automático (§140, 169)
+
+**Discovery automático sí; alta como dispositivo confiable no.**
+
+Estados: `DISCOVERED → REGISTERED → PROVISIONED → ACTIVE` (y `BLOCKED`).
+
+Primer contacto: `greenhouse/discovery/<UID>` con `uid`, `mac`, `firmware`, `hardware`,
+`protocol`. El administrador aprueba; recién entonces se asignan `device_id` y
+`greenhouse_id`.
+
+Separar identidades: `UID` físico (MAC) → `device_id` (`DEV-000123`) → `greenhouse_id`
+(`GH-00007`).
+
+> **Impacto:** el worker actual se suscribe a `greenhouse/+/#`; se añadirá
+> `greenhouse/discovery/#` y la máquina de estados de aprovisionamiento.
+
+### 4.10 Contraseñas / OAuth / 2FA (§134, 152)
+
+- Contraseñas: `password_hash()` (bcrypt/Argon2). Nunca almacenar reversibles.
+- OAuth: no en V1.
+- MFA/TOTP: arquitectura preparada (`users`, `user_credentials`, `user_mfa`,
+  `sessions`, `refresh_tokens`); TOTP posterior (Google Authenticator/Authy/FreeOTP).
+- Roles: `SUPERADMIN`, `ADMIN`, `MANAGER`, `OPERATOR`, `VIEWER`, `MAINTENANCE` +
+  permisos explícitos (`device.read/write/restart/ota`, `hardware.read/write`,
+  `config.read/write`, `automation.read/write`, `user.manage`).
+
+> **Impacto:** `roles` / `users` ya existen (bcrypt) y JWT; se ampliará RBAC.
+
+---
+
+## 5. Decisiones adicionales
+
+### 5.11 Offline-first (invariante)
+
+El servidor puede caer; el ESP32 sigue con reglas locales, sensores, actuadores,
+seguridad y automatización; almacena eventos/históricos localmente y sincroniza al
+volver. Es una **invariante**, no opcional.
+
+### 5.12 Device Shadow
+
+`desired` / `reported` / `actual`. Sincronización: `desired → validar → aplicar →
+guardar → reported`. Si `desired != reported`, el dispositivo sincroniza.
+
+> **Impacto:** `device_shadow` ya existe (`desired` / `reported`); se añadirá `actual`.
+
+### 5.13 Configuración local vs servidor (autoridad)
+
+- **ESP32 autoridad** para: GPIO, SPI, I²C, UART, RS485, 74HC595/165, MCP23017,
+  sensores/actuadores físicos, hardware.
+- **Servidor autoridad** para: usuarios, permisos, grupos, invernaderos, históricos,
+  dashboard, reportes, firmware, inventario.
+- Configuración operativa se sincroniza (`desired` → `reported`) pero el ESP32
+  **valida antes de aplicar**.
+
+La configuración de hardware es **solo lectura** en el servidor por defecto (requiere
+`ADMIN + PIN + confirmación física` localmente).
+
+### 5.14 Import / Export
+
+`EXPORT → config.json` y `IMPORT → VALIDATE → MIGRATE → BACKUP → APPLY → RESTART`.
+
+Separación:
+- **Clonable:** sensores, actuadores, reglas, umbrales, zonas, programaciones, calibraciones.
+- **No clonable:** `device_uid`, `MAC`, `device_id`, certificados, claves privadas,
+  contraseñas WiFi, credenciales MQTT/servidor.
+
+### 5.15 Configuración versionada
+
+```json
+{ "schema_version": 8, "config_id": "...", "created_at": "...", "device": {},
+  "hardware": {}, "network": {}, "sensors": [], "actuators": [], "automation": {} }
+```
+
+Migraciones `schema 1 → … → schema N`. Nunca asumir estructura fija.
+
+> **Impacto:** el firmware ya guarda `config_version`; se añadirá `schema_version`
+> y migraciones explícitas.
+
+### 5.16 Manifest OTA por plataforma
+
+```json
+{ "version": "8.2.0", "channel": "stable",
+  "targets": { "esp32":   { "flash": "4MB", "url": "...", "sha256": "..." },
+               "esp32s3": { "flash": "8MB", "psram": true, "url": "...", "sha256": "..." } } }
+```
+
+Además `min_bootloader`, `min_schema`, `min_protocol`, `hardware_revision` para evitar
+firmware incompatible.
+
+---
+
+## 6. Correcciones conceptuales (cerradas)
+
+1. **74HC595 y PWM:** no genera PWM real; es un registro de desplazamiento de salidas
+   digitales. PWM real = ESP32 LEDC o driver dedicado (TLC5947). La modulación
+   temporizada sobre el 595 es posible, pero su frecuencia/resolución dependen de
+   cantidad de registros, SPI, frecuencia de actualización y canales. **No** afirmar
+   «100 Hz–1 kHz» como límite absoluto ni «carga de CPU = 0 %».
+2. **N8/N16:** es una característica de la **placa/flash**, no del SoC. Mismo código
+   fuente, binarios/particiones distintos según Flash/PSRAM. Detectar
+   SoC/Flash/PSRAM/revisión.
+3. **Sensor interno de temperatura:** categoría `DIAGNOSTIC`, no `ENVIRONMENTAL`.
+4. **TWAI/CAN:** requiere transceptor externo (ej. SN65HVD230). Bus opcional, no
+   sustituto de RS485.
+5. **PCNT:** migrar a `PulseCounterManager` con soporte `GPIO interrupt` + `PCNT` y
+   selección por plataforma (caudal/lluvia/anemómetro).
+6. **Modbus:** sin autodescubrimiento universal. Flujo `SCAN → PROFILE →
+   IDENTIFICATION → COMMISSIONING`. Dispositivos propios exponen `UID`, `Vendor ID`,
+   `Product ID`, `Firmware`, `Capabilities`.
+7. **pH/EC:** abstraer con `SensorDriver → SensorProfile → SensorInstance →
+   Measurement` (sin `if (sensor == PH) …`). Un transmisor nuevo se incorpora por perfil.
+8. **VPD:** `calculated_value`, `temperature_source`, `humidity_source`, `formula`,
+   `quality`. Si falta RH → `VPD = INVALID` (nunca `0`).
+9. **Lux ≠ PPFD:** no asumir equivalencia.
+10. **ADC de pH/EC:** usar ADS1115 (el ADC interno es ruidoso/no lineal); calibración
+    4/7/10 en NVS.
+
+---
+
+## 7. Invariantes del sistema
+
+1. El dispositivo funciona sin servidor.
+2. El servidor nunca es necesario para una función automática crítica.
+3. Toda configuración importante se almacena localmente.
+4. El servidor mantiene copia de la configuración.
+5. Las configuraciones tienen versión.
+6. Las actualizaciones se pueden revertir.
+7. Los sensores se agregan sin modificar la lógica principal.
+8. RS485 es un bus industrial general (no solo pH).
+9. Modbus usa perfiles configurables.
+10. Identidad permanente independiente de la dirección Modbus.
+11. Ethernet y WiFi son interfaces intercambiables.
+12. La web local permite recuperar/mantener el dispositivo sin servidor.
+13. El servidor administra múltiples dispositivos e instalaciones.
+14. La automatización se ejecuta localmente.
+15. Las comunicaciones son una capa independiente de la lógica de control.
+
+---
+
+## 8. Mapeo a la implementación actual
+
+| Decisión | Ya existe | Pendiente |
+|----------|-----------|-----------|
+| 1 Retención | tabla `sensor_readings` | particionado, agregación, `source`/`sequence`/`status` |
+| 3 Coordenadas | `latitude` / `longitude` / `timezone` | `elevation` |
+| 9 Discovery | worker `greenhouse/+/#` | `discovery/#`, estados de aprovisionamiento |
+| 10 Auth | `roles` + `users` (bcrypt), JWT | RBAC ampliado, `user_mfa`, `sessions` |
+| 12 Shadow | `device_shadow` (`desired`/`reported`) | campo `actual` |
+| 15 Versionado | `configurations` versionada + `config_version` | `schema_version` + migraciones |
+| 16 OTA | `firmware_versions`, `ota_jobs` | manifest por targets (multi-SoC) |
+

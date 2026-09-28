@@ -7514,3 +7514,2737 @@ El ESP32 controla.
 Los sensores informan.
 Los actuadores ejecutan.
 La automatización continúa funcionando aunque la red desaparezca.**
+
+# 201. Evolución del proyecto hacia una plataforma configurable
+
+El proyecto evolucionará hacia una arquitectura similar conceptualmente a sistemas como Tasmota, donde un único firmware pueda utilizarse en diferentes configuraciones de hardware sin necesidad de modificar el código fuente para cada instalación.
+
+La diferencia fundamental será que el proyecto estará orientado específicamente a:
+
+* automatización de invernaderos;
+* agricultura;
+* fertirriego;
+* climatización;
+* instrumentación;
+* adquisición de datos;
+* automatización industrial;
+* sensores Modbus;
+* múltiples zonas;
+* múltiples nodos;
+* servidor central.
+
+El principio fundamental será:
+
+```text
+FIRMWARE
+    ↓
+DEFINE CAPACIDADES DEL HARDWARE
+
+CONFIGURACIÓN
+    ↓
+DEFINE QUÉ SE UTILIZA
+
+AUTOMATIZACIÓN
+    ↓
+DEFINE QUÉ DEBE HACER EL SISTEMA
+```
+
+El usuario no deberá modificar el código fuente para cambiar:
+
+```text
+cantidad de sensores
+cantidad de actuadores
+funciones
+nombres
+zonas
+alarmas
+umbrales
+horarios
+direcciones I²C
+direcciones Modbus
+expansores
+entradas
+salidas
+```
+
+---
+
+# 202. Arquitectura de configuración tipo Tasmota
+
+La configuración deberá dividirse en niveles.
+
+```text
+CONFIGURACIÓN
+│
+├── General
+│
+├── Red
+│
+├── Sensores
+│
+├── Actuadores
+│
+├── Automatización
+│
+├── Zonas
+│
+├── Alarmas
+│
+├── Horarios
+│
+├── Meteorología
+│
+├── Servidor central
+│
+├── OTA
+│
+└── Hardware avanzado
+```
+
+La categoría:
+
+```text
+HARDWARE AVANZADO
+```
+
+deberá estar protegida.
+
+---
+
+# 203. Configuración básica y configuración avanzada
+
+La interfaz tendrá dos niveles.
+
+## Configuración normal
+
+Visible para operadores:
+
+```text
+Temperatura
+Humedad
+Riego
+Iluminación
+Ventilación
+Alarmas
+Horarios
+Zonas
+Sensores
+Actuadores
+```
+
+## Configuración avanzada
+
+Visible únicamente para administradores/técnicos:
+
+```text
+GPIO
+SPI
+I²C
+UART
+RS485
+Modbus
+74HC595
+74HC165
+MCP23017
+MCP23S17
+ADC
+W5500
+SD
+Interrupciones
+Pull-up
+Pull-down
+Polaridad
+Boot
+Watchdog
+Particiones
+Hardware
+```
+
+---
+
+# 204. Protección de la configuración de hardware
+
+La configuración física no deberá estar disponible para cualquier usuario.
+
+Se recomienda:
+
+```text
+Usuario
+    ↓
+Configuración normal
+```
+
+y:
+
+```text
+Administrador/Técnico
+    ↓
+Configuración avanzada
+    ↓
+Hardware
+```
+
+La sección hardware deberá requerir:
+
+```text
+contraseña
+```
+
+o:
+
+```text
+PIN de mantenimiento
+```
+
+Opcionalmente:
+
+```text
+confirmación física mediante botón
+```
+
+para cambios críticos.
+
+Por ejemplo:
+
+```text
+Para modificar el mapa GPIO:
+
+1. Ingrese PIN de mantenimiento.
+2. Confirme el cambio.
+3. Presione el botón físico durante 2 segundos.
+4. Aplicar configuración.
+```
+
+Esto evita que un operador cambie accidentalmente un GPIO conectado a una bomba o actuador.
+
+---
+
+# 205. Arquitectura de configuración por capas
+
+La configuración deberá dividirse en:
+
+```text
+FACTORY
+   ↓
+HARDWARE
+   ↓
+DRIVERS
+   ↓
+INSTALLATION
+   ↓
+AUTOMATION
+   ↓
+USER
+```
+
+Ejemplo:
+
+```text
+FACTORY
+ESP32-S3
+
+HARDWARE
+SPI1
+I2C0
+UART1
+
+DRIVER
+SHT31
+
+INSTALLATION
+Temperatura interior
+
+AUTOMATION
+Control ventilador
+```
+
+Esto permite modificar la función de un sensor sin modificar el driver.
+
+---
+
+# 206. Identificación del hardware
+
+Cada ESP32 deberá detectar y registrar:
+
+```text
+SoC
+modelo
+revisión
+MAC
+efuse/chip ID
+flash size
+flash mode
+PSRAM
+frecuencia CPU
+núcleos
+temperatura interna si está disponible
+```
+
+Ejemplo:
+
+```json
+{
+  "chip": {
+    "family": "ESP32-S3",
+    "revision": 1,
+    "mac": "AA:BB:CC:DD:EE:FF",
+    "flash_mb": 8,
+    "psram_mb": 8,
+    "cores": 2
+  }
+}
+```
+
+La temperatura interna deberá considerarse una medición de diagnóstico del chip, no una medición ambiental.
+
+Los ESP32-S3, C5 y C6 disponen de sensor interno de temperatura, pero este mide principalmente la temperatura del silicio y no debe utilizarse como sustituto de un sensor ambiental.
+
+---
+
+# 207. Compatibilidad entre familias ESP32
+
+El proyecto deberá mantener un único código fuente siempre que sea posible, pero generar diferentes firmware según el SoC.
+
+Se deberán contemplar como mínimo:
+
+```text
+ESP32
+ESP32-S2
+ESP32-S3
+ESP32-C3
+ESP32-C5
+ESP32-C6
+```
+
+La documentación actual de Arduino-ESP32 soporta estas familias, aunque no todos los periféricos están disponibles de la misma manera en cada SoC.
+
+Por lo tanto:
+
+```text
+MISMO PROYECTO
+        │
+        ├── firmware ESP32
+        ├── firmware ESP32-S3
+        ├── firmware ESP32-C3
+        ├── firmware ESP32-C5
+        └── firmware ESP32-C6
+```
+
+No se deberá intentar que un único binario sea idéntico para todos los chips.
+
+---
+
+# 208. Capability Matrix
+
+Cada firmware deberá declarar sus capacidades.
+
+Ejemplo:
+
+```json
+{
+  "capabilities": {
+    "wifi": true,
+    "bluetooth": true,
+    "ethernet_spi": true,
+    "i2c": true,
+    "spi": true,
+    "uart": true,
+    "adc": true,
+    "psram": false,
+    "sd_mmc": false,
+    "temperature_sensor": true,
+    "twai": true
+  }
+}
+```
+
+El firmware y la página web deberán utilizar estas capacidades para ocultar automáticamente funciones que el hardware no soporte.
+
+---
+
+# 209. PlatformIO Multi-Environment
+
+El proyecto deberá utilizar diferentes entornos:
+
+```ini
+[env:esp32-devkit]
+board = esp32doit-devkit-v1
+
+[env:esp32-s3]
+board = ...
+
+[env:esp32-c3]
+board = ...
+
+[env:esp32-c5]
+board = ...
+
+[env:esp32-c6]
+board = ...
+```
+
+El código común deberá encontrarse en:
+
+```text
+src/
+lib/
+include/
+```
+
+y las diferencias específicas deberán controlarse mediante:
+
+```text
+#if CONFIG_IDF_TARGET_ESP32
+#if CONFIG_IDF_TARGET_ESP32S3
+#if CONFIG_IDF_TARGET_ESP32C3
+#if CONFIG_IDF_TARGET_ESP32C5
+#if CONFIG_IDF_TARGET_ESP32C6
+```
+
+La documentación oficial de Arduino-ESP32 recomienda precisamente utilizar compilación condicional cuando se necesita compatibilidad entre diferentes versiones/core y variantes.
+
+---
+
+# 210. Compatibilidad con diferentes memorias
+
+El sistema no deberá asumir una capacidad fija de Flash.
+
+Deberá detectar:
+
+```text
+Flash
+4 MB
+8 MB
+16 MB
+32 MB
+...
+```
+
+y:
+
+```text
+PSRAM
+0 MB
+2 MB
+4 MB
+8 MB
+16 MB
+...
+```
+
+La configuración deberá adaptar automáticamente:
+
+```text
+particiones
+LittleFS
+OTA
+históricos
+caché
+logs
+```
+
+La capacidad de almacenamiento no deberá estar codificada como una constante global.
+
+---
+
+# 211. Esquema de particiones dinámico
+
+La distribución deberá reservar como mínimo:
+
+```text
+Bootloader
+NVS
+OTA_0
+OTA_1
+LittleFS
+coredump
+```
+
+La cantidad disponible dependerá del tamaño de Flash.
+
+Ejemplo:
+
+```text
+4 MB
+├── APP0
+├── APP1
+├── NVS
+├── LittleFS
+└── CoreDump
+```
+
+En equipos con mayor Flash:
+
+```text
+16 MB
+├── APP0
+├── APP1
+├── NVS
+├── LittleFS
+├── Logs
+└── reserva
+```
+
+---
+
+# 212. Sistema de almacenamiento
+
+Se utilizarán diferentes tipos de almacenamiento según la información.
+
+## Preferences / NVS
+
+Para:
+
+```text
+configuración pequeña
+flags
+contadores
+credenciales
+identidad
+versiones
+estado
+```
+
+La librería `Preferences` utiliza NVS y está pensada para pequeños valores persistentes; Espressif indica que es apropiada para pequeños datos y que LittleFS resulta más adecuado para archivos grandes. Además, `Preferences` está disponible para las variantes ESP32.
+
+## LittleFS
+
+Para:
+
+```text
+JSON
+configuración completa
+backups
+logs pequeños
+páginas web
+certificados
+manifest cache
+archivos temporales
+```
+
+## SD
+
+Para:
+
+```text
+históricos
+logs extensos
+eventos
+diagnósticos
+registros de decisiones
+exportaciones
+```
+
+---
+
+# 213. Regla de escritura en Flash
+
+No se deberán escribir continuamente las mediciones en NVS.
+
+Por ejemplo:
+
+```text
+Temperatura cada 2 segundos
+```
+
+NO deberá producir:
+
+```text
+NVS write
+NVS write
+NVS write
+NVS write
+...
+```
+
+Las mediciones deberán ir a:
+
+```text
+RAM
+↓
+buffer
+↓
+LittleFS/SD
+```
+
+La NVS se utilizará solamente cuando realmente cambie una configuración o estado persistente.
+
+---
+
+# 214. Arquitectura SD
+
+La interfaz SD preferida será:
+
+```text
+SD por SPI
+```
+
+utilizando:
+
+```cpp
+SD.h
+FS.h
+SPI
+```
+
+La razón principal es mantener una arquitectura uniforme entre diferentes familias ESP32 y permitir seleccionar libremente los GPIO SPI.
+
+`SD_MMC` se considerará opcional por plataforma, no como requisito del sistema.
+
+Espressif documenta que SD_MMC utiliza periféricos/pines específicos y que existen diferencias importantes entre chips y placas, mientras que la utilización de SD mediante SPI permite seleccionar el bus/pines.
+
+---
+
+# 215. Configuración de SD
+
+La web deberá permitir:
+
+```text
+SD
+│
+├── Habilitado
+├── SPI bus
+├── SCLK
+├── MISO
+├── MOSI
+├── CS
+├── frecuencia
+├── formato
+├── retención
+└── sincronización
+```
+
+Ejemplo:
+
+```json
+{
+  "sd": {
+    "enabled": true,
+    "interface": "SPI",
+    "bus": "FSPI",
+    "sclk": 18,
+    "miso": 19,
+    "mosi": 23,
+    "cs": 5,
+    "frequency": 20000000
+  }
+}
+```
+
+---
+
+# 216. Estructura de archivos de la SD
+
+Se utilizará:
+
+```text
+/greenhouse/
+│
+├── system/
+│   ├── boot.log
+│   ├── reset.log
+│   └── diagnostics.log
+│
+├── events/
+│   ├── 2026-09-28.log
+│   └── ...
+│
+├── alarms/
+│   └── 2026-09-28.log
+│
+├── decisions/
+│   └── 2026-09-28.log
+│
+├── sensors/
+│   └── 2026-09-28.csv
+│
+├── actuators/
+│   └── 2026-09-28.csv
+│
+├── configuration/
+│   ├── current.json
+│   ├── previous.json
+│   └── backup/
+│
+└── ota/
+    └── history.log
+```
+
+---
+
+# 217. Registro de decisiones
+
+El sistema deberá registrar no solamente el resultado sino también el motivo.
+
+Ejemplo:
+
+```text
+2026-09-28 14:32:15
+
+ACTION:
+FAN_01 = ON
+
+REASON:
+temperature > target
+
+TEMPERATURE:
+29.2 °C
+
+TARGET:
+25 °C
+
+MODE:
+AUTO
+
+RULE:
+CLIMATE_HIGH_TEMP
+
+SOURCE:
+LOCAL_AUTOMATION
+```
+
+Esto permitirá posteriormente saber por qué el sistema hizo algo.
+
+---
+
+# 218. Registro de modificaciones
+
+Toda modificación deberá registrarse:
+
+```text
+fecha
+hora
+usuario
+origen
+parámetro
+valor anterior
+valor nuevo
+```
+
+Ejemplo:
+
+```text
+Usuario: admin
+Origen: WEB_LOCAL
+Parámetro: temperature_target
+Anterior: 24
+Nuevo: 25
+```
+
+---
+
+# 219. Registro de reinicios
+
+El dispositivo deberá almacenar:
+
+```text
+cantidad total de reinicios
+último reinicio
+causa
+uptime anterior
+firmware
+```
+
+Causas:
+
+```text
+POWER_ON
+BROWNOUT
+WATCHDOG
+PANIC
+SOFTWARE
+OTA
+FACTORY_RESET
+USER_REQUEST
+UNKNOWN
+```
+
+---
+
+# 220. Página "Información del dispositivo"
+
+La web local deberá tener:
+
+```text
+INFORMACIÓN DEL DISPOSITIVO
+```
+
+Mostrando:
+
+```text
+Nombre
+Device ID
+UID
+MAC WiFi
+MAC Ethernet
+IP
+Hostname
+mDNS
+SoC
+Revisión
+Flash
+PSRAM
+CPU
+Cores
+Temperatura interna
+Firmware
+Hardware
+Arduino Core
+ESP-IDF
+Uptime
+Cantidad de reinicios
+Última causa de reset
+LittleFS
+SD
+WiFi RSSI
+Ethernet
+MQTT
+RS485
+```
+
+El servidor central deberá mostrar exactamente la misma información.
+
+---
+
+# 221. Sistema de versiones
+
+El proyecto tendrá:
+
+```text
+FIRMWARE VERSION
+HARDWARE VERSION
+CONFIGURATION VERSION
+PROTOCOL VERSION
+WEB VERSION
+```
+
+Ejemplo:
+
+```text
+Firmware: 8.2.0
+Hardware: GH-V2.1
+Config schema: 15
+Protocol: 4
+Web UI: 8.2.0
+```
+
+La versión deberá aparecer siempre:
+
+```text
+Página local
+Dashboard central
+Información del dispositivo
+OTA
+Logs
+MQTT
+REST API
+```
+
+---
+
+# 222. Manifest OTA por hardware
+
+El repositorio GitHub deberá contener un manifest.
+
+Ejemplo:
+
+```json
+{
+  "project": "Invernadero",
+  "channel": "stable",
+  "latest": {
+    "esp32": {
+      "version": "8.2.0",
+      "url": ".../firmware-esp32-8.2.0.bin"
+    },
+    "esp32s3": {
+      "version": "8.2.0",
+      "url": ".../firmware-esp32s3-8.2.0.bin"
+    },
+    "esp32c3": {
+      "version": "8.2.0",
+      "url": ".../firmware-esp32c3-8.2.0.bin"
+    },
+    "esp32c5": {
+      "version": "8.2.0",
+      "url": ".../firmware-esp32c5-8.2.0.bin"
+    },
+    "esp32c6": {
+      "version": "8.2.0",
+      "url": ".../firmware-esp32c6-8.2.0.bin"
+    }
+  }
+}
+```
+
+El dispositivo deberá seleccionar automáticamente el firmware correspondiente a su SoC.
+
+---
+
+# 223. OTA con validación
+
+Antes de actualizar:
+
+```text
+detectar SoC
+detectar hardware
+detectar versión
+consultar manifest
+comprobar compatibilidad
+descargar
+verificar SHA-256
+instalar
+reiniciar
+realizar health check
+confirmar
+```
+
+Si falla:
+
+```text
+ROLLBACK
+```
+
+---
+
+# 224. Configuración de 74HC595
+
+La cantidad de registros no deberá estar fijada únicamente en código.
+
+La web avanzada deberá permitir:
+
+```text
+74HC595
+│
+├── Cantidad: 4
+├── SPI bus: FSPI
+├── MOSI: 23
+├── CLK: 18
+├── LATCH: 5
+├── OE: 4
+└── frecuencia: 4 MHz
+```
+
+La cantidad podrá ser:
+
+```text
+1
+2
+3
+4
+...
+N
+```
+
+limitada por memoria, velocidad y diseño eléctrico.
+
+---
+
+# 225. Mapa de 74HC595
+
+Cada bit será configurable.
+
+Ejemplo:
+
+```text
+74HC595 #1
+
+Q0 → Bomba 1
+Q1 → Válvula 1
+Q2 → Válvula 2
+Q3 → Ventilador
+Q4 → Luz
+Q5 → Calefacción
+Q6 → Reserva
+Q7 → Reserva
+```
+
+Cada canal tendrá:
+
+```text
+ID
+Nombre
+Función
+Tipo
+Polaridad
+Estado seguro
+Zona
+Modo
+PWM
+Interlock
+```
+
+---
+
+# 226. Ejemplo de configuración 74HC595
+
+```json
+{
+  "output_expander": {
+    "type": "74HC595",
+    "count": 2,
+    "channels": [
+      {
+        "chip": 0,
+        "bit": 0,
+        "name": "Bomba 1",
+        "function": "PUMP",
+        "active_high": true,
+        "safe_state": false
+      },
+      {
+        "chip": 0,
+        "bit": 1,
+        "name": "Ventilador 1",
+        "function": "FAN",
+        "active_high": true,
+        "safe_state": false
+      }
+    ]
+  }
+}
+```
+
+---
+
+# 227. Integración 74HC165
+
+Se incorporará:
+
+```text
+74HC165 / 74HCT165
+```
+
+como expansión de entradas digitales.
+
+Arquitectura:
+
+```text
+ESP32
+ │
+ SPI
+ │
+74HC165 #1
+ │
+74HC165 #2
+ │
+74HC165 #N
+```
+
+Cada dispositivo proporciona ocho entradas digitales.
+
+---
+
+# 228. Configuración 74HC165
+
+La página deberá permitir:
+
+```text
+Cantidad
+SPI bus
+DATA
+CLOCK
+LOAD
+CE
+```
+
+y:
+
+```text
+Q0 → Final de carrera techo
+Q1 → Final de carrera ventana
+Q2 → Flotador tanque
+Q3 → Sensor puerta
+Q4 → Emergencia
+Q5 → Presostato
+Q6 → Caudal digital
+Q7 → Reserva
+```
+
+Cada entrada tendrá:
+
+```text
+nombre
+función
+polaridad
+pull-up
+pull-down
+debounce
+interrupción
+zona
+alarma
+```
+
+---
+
+# 229. MCP23017 configurable
+
+El sistema deberá permitir múltiples MCP23017.
+
+Ejemplo:
+
+```text
+MCP23017 #1
+0x20
+
+MCP23017 #2
+0x21
+
+MCP23017 #3
+0x22
+
+MCP23017 #4
+0x23
+```
+
+Cada pin será configurable.
+
+---
+
+# 230. Configuración individual del MCP23017
+
+Ejemplo:
+
+```text
+MCP23017 #1
+Dirección: 0x20
+
+A0 → OUTPUT → Bomba
+A1 → OUTPUT → Válvula
+A2 → OUTPUT → Ventilador
+A3 → INPUT → Flotador
+A4 → INPUT → Emergencia
+A5 → INPUT → Final carrera
+A6 → OUTPUT → Luz
+A7 → OUTPUT → Relé
+
+B0 → INPUT
+B1 → INPUT
+B2 → OUTPUT
+...
+```
+
+Cada pin deberá tener:
+
+```text
+INPUT
+OUTPUT
+INPUT_PULLUP
+INPUT_PULLDOWN
+INTERRUPT
+```
+
+según las capacidades reales del componente.
+
+---
+
+# 231. Escaneo I²C
+
+La página de hardware deberá tener:
+
+```text
+ESCANEAR BUS I²C
+```
+
+Resultado:
+
+```text
+0x20 → MCP23017
+0x21 → MCP23017
+0x44 → SHT31
+0x76 → BMP280
+0x48 → ADS1115
+```
+
+El sistema deberá diferenciar:
+
+```text
+DIRECCIÓN DETECTADA
+```
+
+de:
+
+```text
+DISPOSITIVO IDENTIFICADO
+```
+
+No se deberá asumir automáticamente que un dispositivo es un determinado sensor únicamente porque responde a una dirección I²C.
+
+---
+
+# 232. Base de datos de sensores
+
+Se creará una base de datos de tipos de sensores.
+
+Ejemplo:
+
+```text
+TEMPERATURE
+├── SHT30
+├── SHT31
+├── SHT35
+├── AHT20
+├── AHT21
+├── DS18B20
+├── BME280
+├── BMP280
+└── MODBUS_TEMP
+
+HUMIDITY
+├── SHT31
+├── AHT20
+├── BME280
+└── MODBUS_RH
+```
+
+El usuario podrá elegir el modelo que realmente posee.
+
+---
+
+# 233. Sensor genérico
+
+Además de sensores conocidos deberá existir:
+
+```text
+GENERIC SENSOR
+```
+
+permitiendo configurar:
+
+```text
+interfaz
+dirección
+registro
+unidad
+escala
+offset
+mínimo
+máximo
+calibración
+```
+
+Esto permitirá agregar sensores nuevos sin modificar el motor de automatización.
+
+---
+
+# 234. Variables del sistema
+
+El usuario deberá poder crear variables.
+
+Ejemplo:
+
+```text
+temperature_target
+humidity_target
+soil_target
+co2_target
+ph_target
+ec_target
+light_hours
+dark_hours
+```
+
+También:
+
+```text
+variables calculadas
+```
+
+---
+
+# 235. Variables calculadas
+
+El sistema deberá permitir crear:
+
+```text
+VPD
+promedio temperatura
+promedio humedad
+temperatura exterior - interior
+humedad media de zona
+consumo de agua
+tiempo de riego
+horas de luz
+```
+
+Ejemplo:
+
+```text
+VPD =
+f(temperatura, humedad)
+```
+
+---
+
+# 236. Variables configurables por usuario
+
+Ejemplo:
+
+```text
+Temperatura mínima
+Temperatura ideal
+Temperatura máxima
+
+Humedad mínima
+Humedad ideal
+Humedad máxima
+
+CO₂ mínimo
+CO₂ ideal
+CO₂ máximo
+
+pH mínimo
+pH ideal
+pH máximo
+
+EC mínima
+EC ideal
+EC máxima
+```
+
+Estas variables no deberán estar codificadas directamente en los controladores.
+
+---
+
+# 237. Motor de reglas configurable
+
+El usuario podrá crear reglas:
+
+```text
+SI temperatura > 28
+ENTONCES ventilador = 100%
+```
+
+```text
+SI temperatura < 18
+ENTONCES calefacción = ON
+```
+
+```text
+SI humedad_suelo < 35
+Y tanque > 20
+ENTONCES iniciar_riego
+```
+
+---
+
+# 238. Fotoperiodo
+
+La iluminación deberá soportar:
+
+```text
+horas de luz
+horas de oscuridad
+hora de inicio
+hora de finalización
+```
+
+Ejemplo:
+
+```text
+Luz:
+12 horas
+
+Oscuridad:
+9 horas
+```
+
+El sistema deberá validar que la configuración sea coherente.
+
+También deberá soportar:
+
+```text
+fotoperiodo continuo
+fotoperiodo dividido
+amanecer artificial
+atardecer artificial
+```
+
+---
+
+# 239. Fotoperiodo basado en duración
+
+En lugar de obligar al usuario a introducir únicamente horarios:
+
+```text
+Luz:
+12 h
+
+Oscuridad:
+9 h
+```
+
+el sistema podrá calcular automáticamente el ciclo.
+
+También podrá utilizar:
+
+```text
+sunrise
+sunset
+```
+
+cuando exista ubicación/configuración meteorológica adecuada.
+
+---
+
+# 240. Emergencia virtual
+
+La página local deberá tener un botón visible:
+
+```text
+        🚨 EMERGENCIA
+```
+
+La acción deberá ser configurable.
+
+Por ejemplo:
+
+```text
+Bomba OFF
+Calefacción OFF
+Iluminación OFF
+Ventiladores ON
+Válvulas OFF
+Techo CLOSED
+```
+
+según la configuración.
+
+---
+
+# 241. Emergencia física
+
+Se deberá soportar un botón físico de emergencia.
+
+El usuario podrá seleccionar:
+
+```text
+☑ Usar botón físico de emergencia
+```
+
+y configurar:
+
+```text
+GPIO
+MCP23017
+74HC165
+RS485 input
+```
+
+La función será:
+
+```text
+EMERGENCY INPUT
+        ↓
+SAFETY CONTROLLER
+        ↓
+ESTADO DE EMERGENCIA
+```
+
+---
+
+# 242. Emergencia configurable
+
+El usuario deberá decidir qué ocurre:
+
+```text
+Actuador 1 → OFF
+Actuador 2 → OFF
+Actuador 3 → ON
+Actuador 4 → SAFE
+```
+
+No todos los actuadores necesariamente deben apagarse.
+
+Por ejemplo, en determinadas instalaciones puede ser necesario mantener:
+
+```text
+ventilación = ON
+```
+
+durante una emergencia térmica.
+
+---
+
+# 243. Emergencia con enclavamiento
+
+Se recomienda que la emergencia permanezca activa hasta:
+
+```text
+reconocimiento
++
+condición segura
+```
+
+No deberá desaparecer simplemente porque el sensor dejó de detectar la condición.
+
+---
+
+# 244. Estación meteorológica externa
+
+Se incorporará un sistema de integración meteorológica externo.
+
+Interfaces:
+
+```text
+REST API
+MQTT
+Modbus
+```
+
+La estación podrá enviar:
+
+```text
+temperatura
+humedad
+presión
+viento
+dirección viento
+lluvia
+radiación
+UV
+```
+
+y otros parámetros.
+
+---
+
+# 245. API meteorológica
+
+Ejemplo:
+
+```json
+{
+  "temperature": 23.5,
+  "humidity": 71,
+  "pressure": 1012.4,
+  "wind_speed": 12.2,
+  "wind_direction": 180,
+  "rain": 0,
+  "solar": 642
+}
+```
+
+El sistema podrá utilizar estos datos en:
+
+```text
+ventilación
+techo
+sombreado
+riego
+alarmas
+predicción
+```
+
+---
+
+# 246. MQTT meteorológico
+
+También podrá configurarse:
+
+```text
+weather/outdoor/temperature
+weather/outdoor/humidity
+weather/outdoor/pressure
+weather/outdoor/wind
+weather/outdoor/rain
+```
+
+El sistema deberá permitir mapear cada tópico a una variable.
+
+---
+
+# 247. Configuración W5500
+
+Se utilizará preferentemente un módulo Ethernet basado en:
+
+```text
+W5500
+```
+
+con interfaz SPI.
+
+El ESP-IDF soporta Ethernet mediante módulos SPI como W5500, por lo que resulta una alternativa apropiada para mantener una arquitectura Ethernet común entre diferentes placas ESP32.
+
+---
+
+# 248. W5500 configurable
+
+La página avanzada permitirá:
+
+```text
+Ethernet
+│
+├── Enabled
+├── SPI bus
+├── SCLK
+├── MISO
+├── MOSI
+├── CS
+├── INT
+├── RESET
+├── DHCP
+├── IP
+├── Gateway
+├── Mask
+├── DNS
+└── MAC
+```
+
+El proyecto deberá evitar asumir que todos los ESP32 poseen los mismos GPIO.
+
+---
+
+# 249. Administrador de buses SPI
+
+Como 74HC595, 74HC165, W5500 y SD podrán compartir SPI, se deberá implementar:
+
+```text
+SPI Bus Manager
+```
+
+Ejemplo:
+
+```text
+SPI BUS
+│
+├── CS 5  → W5500
+├── CS 15 → SD
+├── CS 16 → ADC
+├── CS 17 → ADC
+└── CS 4  → otro dispositivo
+```
+
+Cada dispositivo deberá poseer:
+
+```text
+CS único
+modo SPI
+frecuencia
+orden de bits
+```
+
+El bus deberá utilizar transacciones SPI correctamente.
+
+---
+
+# 250. ADC externos
+
+Se incorporarán diferentes familias de ADC.
+
+## Económico
+
+```text
+MCP3008
+10 bit
+8 canales
+SPI
+```
+
+## Intermedio
+
+```text
+MCP3208
+12 bit
+8 canales
+SPI
+```
+
+## Alta prestación
+
+```text
+ADS8688
+16 bit
+8 canales
+SPI
+```
+
+El ADS8688 ofrece 16 bits, ocho canales, SPI, hasta 500 kSPS y rangos de entrada programables, por lo que deberá tratarse como un ADC de adquisición avanzada y no como un reemplazo directo de un MCP3008.
+
+También podrá incorporarse:
+
+```text
+ADS8332
+```
+
+como ADC SPI de 16 bits y ocho canales.
+
+---
+
+# 251. Configuración de ADC
+
+Cada canal deberá permitir:
+
+```text
+Nombre
+Tipo de señal
+Unidad
+Escala
+Offset
+Calibración
+Mínimo
+Máximo
+Filtro
+Promedio
+```
+
+Ejemplo:
+
+```text
+ADC #1
+Canal 0
+
+Nombre:
+Humedad suelo 1
+
+Unidad:
+%
+
+Rango:
+0-100 %
+
+Calibración:
+0 V = 0 %
+3.0 V = 100 %
+```
+
+---
+
+# 252. Base de datos de sensores sobre ADC
+
+Un mismo ADC podrá utilizarse para múltiples sensores.
+
+Ejemplo:
+
+```text
+ADS8688
+│
+├── CH0 → pH
+├── CH1 → EC
+├── CH2 → humedad suelo
+├── CH3 → presión
+├── CH4 → nivel
+├── CH5 → radiación
+├── CH6 → reserva
+└── CH7 → reserva
+```
+
+---
+
+# 253. Access Point identificable
+
+Cada ESP32 nuevo deberá crear automáticamente:
+
+```text
+INVERNADERO-XXXXXX
+```
+
+donde:
+
+```text
+XXXXXX
+```
+
+serán los últimos seis caracteres de la MAC.
+
+Ejemplo:
+
+```text
+INVERNADERO-A1B2C3
+```
+
+Esto será especialmente importante cuando existan muchos dispositivos sin configurar.
+
+---
+
+# 254. Contraseña del Access Point
+
+La contraseña AP deberá poder ser:
+
+```text
+generada automáticamente
+```
+
+utilizando información del dispositivo.
+
+Ejemplo:
+
+```text
+AP:
+INVERNADERO-A1B2C3
+
+Password:
+GH-A1B2C3-XXXX
+```
+
+No deberá utilizarse una contraseña universal idéntica para todos los dispositivos.
+
+---
+
+# 255. mDNS configurable
+
+El hostname deberá poder cambiarse desde:
+
+```text
+Configuración
+→ Red
+→ mDNS
+```
+
+Ejemplo:
+
+```text
+invernadero-01.local
+invernadero-02.local
+riego-01.local
+gateway-01.local
+```
+
+El usuario podrá definir un nombre único.
+
+La web deberá advertir:
+
+```text
+El hostname debe ser único dentro de la red local.
+```
+
+---
+
+# 256. Configuración de DNS y NTP
+
+Deberá incluir:
+
+```text
+DNS automático
+DNS manual
+
+NTP automático
+NTP personalizado
+
+Zona horaria
+```
+
+La zona horaria se almacenará preferentemente utilizando identificadores IANA.
+
+Ejemplo:
+
+```text
+America/Argentina/Buenos_Aires
+```
+
+---
+
+# 257. Importar configuración
+
+La web local deberá permitir:
+
+```text
+CONFIGURACIÓN
+→ IMPORTAR
+```
+
+El archivo podrá ser:
+
+```text
+invernadero-config.json
+```
+
+Antes de aplicarlo:
+
+```text
+validar
+mostrar cambios
+confirmar
+crear backup
+aplicar
+reiniciar si es necesario
+```
+
+---
+
+# 258. Exportar configuración
+
+Se podrá descargar:
+
+```text
+CONFIGURACIÓN COMPLETA
+```
+
+conteniendo:
+
+```text
+device
+network
+hardware
+buses
+expanders
+sensors
+actuators
+zones
+automation
+alarms
+lighting
+irrigation
+calibration
+server
+mqtt
+```
+
+---
+
+# 259. Exportación separada
+
+Se recomienda ofrecer:
+
+```text
+Exportar configuración completa
+Exportar configuración de hardware
+Exportar automatización
+Exportar sensores
+Exportar red
+Exportar usuarios
+```
+
+Esto facilita mantenimiento.
+
+---
+
+# 260. Clonado de dispositivos
+
+El sistema deberá permitir:
+
+```text
+ESP32 A
+   ↓
+Exportar configuración
+   ↓
+config.json
+   ↓
+ESP32 B
+   ↓
+Importar
+```
+
+Pero determinados campos deberán excluirse automáticamente:
+
+```text
+MAC
+UID
+device_id
+credenciales únicas
+certificados
+claves privadas
+```
+
+El nuevo dispositivo deberá generar su propia identidad.
+
+---
+
+# 261. Plantillas
+
+Se podrán crear plantillas:
+
+```text
+template-basic-greenhouse.json
+template-outdoor.json
+template-hydroponic.json
+template-fertigation.json
+template-industrial.json
+```
+
+Al importar una plantilla:
+
+```text
+hardware
+   ↓
+validar capacidades
+   ↓
+adaptar
+   ↓
+instalar configuración
+```
+
+---
+
+# 262. Diferencia entre configuración de hardware y configuración funcional
+
+Esto será fundamental.
+
+### Hardware
+
+```text
+GPIO 23 = SPI MOSI
+GPIO 18 = SPI CLK
+GPIO 5 = W5500 CS
+GPIO 15 = SD CS
+```
+
+### Función
+
+```text
+W5500 = Ethernet
+SD = almacenamiento
+```
+
+### Aplicación
+
+```text
+Ethernet = conexión al servidor
+SD = registrar eventos
+```
+
+No se deberán mezclar estos tres niveles.
+
+---
+
+# 263. Configuración solo local de hardware
+
+La configuración de:
+
+```text
+GPIO
+SPI
+I²C
+UART
+expansores
+ADC
+W5500
+SD
+74HC595
+74HC165
+```
+
+deberá poder configurarse únicamente desde:
+
+```text
+WEB LOCAL
+```
+
+por defecto.
+
+El servidor central podrá mostrarla en modo:
+
+```text
+SOLO LECTURA
+```
+
+Esto reduce el riesgo de que un usuario remoto modifique accidentalmente el hardware físico.
+
+Opcionalmente podrá habilitarse:
+
+```text
+"Permitir configuración de hardware desde servidor central"
+```
+
+pero deberá estar desactivado por defecto.
+
+---
+
+# 264. Detección automática de hardware
+
+El sistema deberá detectar automáticamente cuando sea posible:
+
+```text
+I²C
+SD
+W5500
+sensores conocidos
+```
+
+pero no deberá modificar automáticamente configuraciones críticas.
+
+Ejemplo:
+
+```text
+Se detectó MCP23017 en 0x21.
+
+¿Desea agregarlo?
+
+[ AGREGAR ]
+```
+
+No:
+
+```text
+Detectado → configurar automáticamente como salida
+```
+
+---
+
+# 265. Estado del dispositivo
+
+La página deberá incluir:
+
+```text
+ONLINE
+RUN
+SAFE
+DEGRADED
+ERROR
+MAINTENANCE
+OTA
+```
+
+y mostrar:
+
+```text
+último cambio
+último error
+última alarma
+última reinicialización
+```
+
+---
+
+# 266. Reinicio remoto
+
+La página local deberá incluir:
+
+```text
+REINICIAR ESP32
+```
+
+y el servidor:
+
+```text
+REINICIAR DISPOSITIVO
+```
+
+La acción deberá registrar:
+
+```text
+usuario
+fecha
+hora
+origen
+motivo
+```
+
+Ejemplo:
+
+```text
+USER_REQUEST
+WEB_LOCAL
+```
+
+---
+
+# 267. Reinicio seguro
+
+Antes de reiniciar:
+
+```text
+guardar configuración
+guardar eventos
+guardar estado necesario
+poner actuadores en estado seguro cuando corresponda
+cerrar archivos
+desconectar servicios
+reiniciar
+```
+
+---
+
+# 268. Health Check después del reinicio
+
+Después de reiniciar:
+
+```text
+BOOT
+↓
+SELF TEST
+↓
+HARDWARE
+↓
+STORAGE
+↓
+NETWORK
+↓
+SENSORS
+↓
+ACTUATORS
+↓
+AUTOMATION
+↓
+RUN
+```
+
+El resultado deberá quedar registrado.
+
+---
+
+# 269. Servidor central como plataforma
+
+El servidor central deberá tener:
+
+```text
+Dashboard
+Dispositivos
+Invernaderos
+Zonas
+Sensores
+Actuadores
+Automatización
+Alarmas
+Eventos
+Históricos
+Usuarios
+Firmware
+OTA
+Configuraciones
+Backups
+Auditoría
+```
+
+---
+
+# 270. Configuración central
+
+El servidor deberá poder mostrar:
+
+```text
+Configuración actual
+Configuración deseada
+Configuración reportada
+Versión
+Última sincronización
+```
+
+pero la configuración física avanzada seguirá siendo local por defecto.
+
+---
+
+# 271. Device Shadow
+
+Cada dispositivo tendrá:
+
+```text
+desired
+reported
+actual
+```
+
+Ejemplo:
+
+```json
+{
+  "desired": {
+    "temperature_target": 25
+  },
+  "reported": {
+    "temperature_target": 24
+  }
+}
+```
+
+El dispositivo deberá sincronizar:
+
+```text
+desired
+→
+validar
+→
+aplicar
+→
+guardar
+→
+reported
+```
+
+---
+
+# 272. Servidor sin dependencia operacional
+
+El servidor central será:
+
+```text
+supervisión
+históricos
+configuración
+administración
+OTA
+```
+
+El ESP32 será:
+
+```text
+control
+seguridad
+automatización
+sensores
+actuadores
+```
+
+Si el servidor desaparece:
+
+```text
+ESP32 continúa funcionando.
+```
+
+---
+
+# 273. Sincronización después de una desconexión
+
+Al recuperar conexión:
+
+```text
+ESP32
+ ↓
+envía eventos pendientes
+ ↓
+envía históricos pendientes
+ ↓
+sincroniza configuración
+ ↓
+sincroniza estado
+ ↓
+continúa operación normal
+```
+
+---
+
+# 274. Base de datos de sensores
+
+La base de datos central deberá separar:
+
+```text
+sensor_type
+sensor_model
+sensor_driver
+sensor_interface
+sensor_instance
+```
+
+Ejemplo:
+
+```text
+sensor_type:
+TEMPERATURE
+
+sensor_model:
+SHT31
+
+driver:
+SHT31_I2C
+
+interface:
+I2C
+
+instance:
+TEMP-001
+```
+
+Esto permitirá que varios modelos realicen la misma función.
+
+---
+
+# 275. Catálogo de sensores
+
+Ejemplo:
+
+```text
+Temperatura
+├── SHT31
+├── AHT20
+├── DS18B20
+├── BME280
+├── Modbus Temperature
+└── Generic Analog
+
+Humedad
+├── SHT31
+├── AHT20
+├── BME280
+└── Modbus Humidity
+
+pH
+├── SEN0161
+├── SEN024
+├── pH Analog Generic
+└── pH Modbus
+
+EC
+├── EC Analog
+└── EC Modbus
+```
+
+El usuario seleccionará el sensor que realmente tiene.
+
+---
+
+# 276. Catálogo ampliable
+
+El catálogo no deberá estar rígidamente limitado al firmware.
+
+Deberá poder incorporar:
+
+```text
+driver
+registro Modbus
+unidad
+calibración
+rango
+```
+
+desde archivos de definición.
+
+---
+
+# 277. Perfiles Modbus
+
+Cada sensor industrial tendrá un perfil:
+
+```text
+fabricante
+modelo
+baudrate
+paridad
+slave ID
+register map
+datatype
+scale
+offset
+unit
+```
+
+Esto permitirá utilizar múltiples sensores industriales sin programar cada uno individualmente.
+
+---
+
+# 278. Descubrimiento Modbus
+
+La herramienta:
+
+```text
+RS485 → ESCANEAR
+```
+
+deberá intentar:
+
+```text
+baudrate
+paridad
+direcciones
+```
+
+y detectar dispositivos.
+
+Sin embargo, el sistema deberá distinguir entre:
+
+```text
+DISPOSITIVO DETECTADO
+```
+
+y:
+
+```text
+DISPOSITIVO IDENTIFICADO
+```
+
+porque Modbus RTU no proporciona un mecanismo universal de autodescubrimiento para cualquier dispositivo.
+
+---
+
+# 279. Auto-ID mediante provisioning
+
+Los dispositivos propios de la plataforma podrán incorporar:
+
+```text
+DEVICE_UID
+```
+
+permanente.
+
+Durante commissioning:
+
+```text
+UID
+↓
+descubrimiento
+↓
+identificación
+↓
+asignación Modbus ID
+↓
+registro
+```
+
+La dirección Modbus será un parámetro de comunicación, no la identidad permanente.
+
+---
+
+# 280. Arquitectura final de buses
+
+El ESP32 deberá disponer de un administrador de buses:
+
+```text
+BUS MANAGER
+│
+├── I²C
+├── SPI
+├── UART
+├── RS485
+├── 1-Wire
+└── GPIO
+```
+
+Todos los drivers deberán utilizar esta capa.
+
+Esto evitará que cada sensor inicialice por su cuenta:
+
+```text
+Wire
+SPI
+UART
+```
+
+y permitirá gestionar conflictos de recursos.
+
+---
+
+# 281. Objetivo de la arquitectura final
+
+El sistema deberá permitir al usuario realizar:
+
+```text
+1. Conectar hardware.
+2. Entrar a la web.
+3. Detectar hardware.
+4. Configurar buses.
+5. Configurar expansores.
+6. Agregar sensores.
+7. Agregar actuadores.
+8. Crear zonas.
+9. Crear variables.
+10. Crear alarmas.
+11. Crear reglas.
+12. Configurar horarios.
+13. Guardar.
+14. Probar.
+15. Ejecutar.
+```
+
+sin modificar el firmware.
+
+---
+
+# 282. Filosofía final
+
+La configuración deberá funcionar de forma similar a:
+
+```text
+Tasmota
+```
+
+pero con una arquitectura agrícola especializada.
+
+El usuario deberá pensar:
+
+```text
+"Quiero medir temperatura"
+```
+
+y no:
+
+```text
+"Necesito modificar SensorManager.cpp"
+```
+
+Deberá pensar:
+
+```text
+"Quiero una bomba para riego"
+```
+
+y no:
+
+```text
+"Necesito cambiar GPIO 27"
+```
+
+El técnico podrá acceder a:
+
+```text
+Hardware avanzado
+```
+
+cuando sea necesario.
+
+El operador normal no deberá necesitarlo.
+
+---
+
+# 283. Resultado esperado
+
+La plataforma deberá poder utilizar:
+
+```text
+ESP32 DevKit V1
+ESP32-S3
+ESP32-C3
+ESP32-C5
+ESP32-C6
+```
+
+con diferentes capacidades de hardware y memoria.
+
+Podrá utilizar:
+
+```text
+I²C
+SPI
+1-Wire
+GPIO
+ADC
+RS485
+Modbus
+W5500
+SD
+74HC595
+74HC165
+MCP23017
+MCP23S17
+MCP3008
+MCP3208
+ADS1115
+ADS8688
+ADS8332
+```
+
+y diferentes sensores y actuadores.
+
+---
+
+# 284. Arquitectura final de configuración
+
+```text
+                    ESP32
+                      │
+             ┌────────┴────────┐
+             │                 │
+        CAPABILITIES       CONFIGURATION
+             │                 │
+             │        ┌────────┴─────────┐
+             │        │                  │
+          HARDWARE  INSTALLATION     AUTOMATION
+             │        │                  │
+       ┌─────┼─────┐  │             ┌────┼────┐
+       │     │     │  │             │    │    │
+      I²C   SPI   GPIO             CLIMA RIEGO LUZ
+       │     │
+       │     ├── W5500
+       │     ├── SD
+       │     ├── ADC
+       │     ├── 595
+       │     └── 165
+       │
+       ├── SHT31
+       ├── MCP23017
+       └── ADS1115
+```
+
+---
+
+# 285. Objetivo de la próxima versión
+
+La siguiente versión importante del proyecto deberá priorizar:
+
+```text
+V8
+│
+├── Configuration Engine
+├── Hardware Manager
+├── Bus Manager
+├── Sensor Registry
+├── Actuator Registry
+├── Rule Engine
+├── Safety Engine
+├── Device Information
+├── LittleFS
+├── SD
+├── W5500
+├── 74HC595 configurable
+├── 74HC165
+├── MCP23017 configurable
+├── ADC Manager
+├── OTA Manager
+├── Version Manager
+├── Import/Export
+└── Multi-board support
+```
+
+Posteriormente:
+
+```text
+V9
+│
+├── Modbus
+├── RS485 discovery
+├── provisioning
+├── industrial sensors
+├── weather station
+└── gateway
+```
+
+Y posteriormente:
+
+```text
+V10
+│
+├── Central Server
+├── PostgreSQL
+├── MQTT
+├── multi-greenhouse
+├── centralized OTA
+├── users
+├── roles
+├── audit
+└── remote management
+```
+
+---
+
+# 286. Principio final del proyecto
+
+El objetivo definitivo será que el firmware deje de representar una instalación concreta.
+
+El firmware representará:
+
+```text
+UNA PLATAFORMA
+```
+
+La configuración representará:
+
+```text
+UNA INSTALACIÓN
+```
+
+Y las reglas representarán:
+
+```text
+EL COMPORTAMIENTO
+```
+
+Por lo tanto:
+
+```text
+           FIRMWARE
+              │
+        "qué puede hacer"
+              │
+              ▼
+        CONFIGURACIÓN
+              │
+        "qué hardware hay"
+              │
+              ▼
+       AUTOMATIZACIÓN
+              │
+       "qué debe hacer"
+              │
+              ▼
+          INVERNADERO
+```
+
+Esta separación será el principio arquitectónico principal para permitir que el proyecto crezca desde un ESP32 económico hasta instalaciones industriales multizona y multinvernadero.
