@@ -2077,6 +2077,66 @@ GET /api/v1/events
 GET /api/v1/alarms
 ```
 
+### Endpoints implementados en el firmware actual (v3.4.0)
+
+La API REST local del ESP32 implementa, además de los listados, los siguientes
+endpoints reales (todos bajo `/api/v1/`):
+
+```text
+GET    /device            → identidad + SoC/flash/PSRAM/MAC/temperatura interna
+GET    /capabilities      → lista de capacidades del dispositivo
+GET    /status            → resumen de sensores/actuadores/VPD/punto de rocío
+GET    /sensors           → lecturas tipadas con estado/calidad
+GET    /actuators         → estado de actuadores
+POST   /actuators         → control manual (requiere autenticación)
+GET    /config            → configuración actual
+PUT    /config            → aplicar configuración (requiere autenticación)
+GET    /config/schema     → esquema de configuración
+GET    /config/export     → exportar configuración (con schema_version)
+POST   /config/import     → importar/validar/aplicar (requiere autenticación)
+POST   /config/rollback   → restaurar configuración anterior (requiere autenticación)
+GET    /automation        → listar reglas del Rule Engine
+POST   /automation        → agregar regla (requiere autenticación)
+DELETE /automation        → limpiar reglas (requiere autenticación)
+GET    /events            → registro de eventos
+GET    /alarms            → alarmas activas
+GET    /network           → estado de red (WiFi/AP)
+POST   /network/scan      → escaneo WiFi (requiere autenticación)
+GET    /rs485             → diagnóstico RS485/Modbus
+POST   /rs485/scan        → escaneo de bus (requiere autenticación)
+GET    /modbus            → herramienta Modbus de mantenimiento
+GET    /zones             → zonas configuradas
+GET    /diagnostics       → diagnóstico del sistema
+GET    /firmware          → versión de firmware
+GET    /ota               → estado OTA
+POST   /reset             → reiniciar (requiere autenticación)
+POST   /factory-reset     → restablecer de fábrica (requiere autenticación)
+POST   /auth/login        → inicio de sesión del administrador local
+```
+
+### Autenticación local
+
+La interfaz web local no permanece abierta (sección 19/154). Los endpoints de
+solo lectura (`GET`) son públicos, pero toda operación de modificación
+(`PUT`/`POST`/`DELETE`) exige autenticación:
+
+```http
+POST /api/v1/auth/login
+```
+
+```json
+{ "user": "admin", "pass": "..." }
+```
+
+```json
+{ "ok": true, "token": "<token>" }
+```
+
+El token (con expiración) se envía como cabecera `X-Auth-Token: <token>` o
+`Authorization: Bearer <token>` en las operaciones protegidas. La contraseña de
+administrador se deriva del UID del dispositivo y se almacena en NVS separado,
+por lo que nunca se exporta en el JSON de configuración.
+
 ---
 
 # 42. Control de actuadores

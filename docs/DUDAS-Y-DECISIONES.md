@@ -12,7 +12,7 @@
 
 | Bloque | Rama | Estado |
 |--------|------|--------|
-| Firmware de campo v3.1.0 (README §1–200) | `main` | ✅ sensores, actuadores, control, config, red, OTA, RS485, identidad/capacidades, máquina de estados, simulación |
+| Firmware de campo v3.4.0 (README §1–200) | `main` | ✅ sensores, actuadores, control, config, red, OTA, RS485, identidad/capacidades, máquina de estados, simulación, device info, escaneo WiFi, AP por MAC, export/import, Rule Engine, VPD/punto de rocío, autenticación local de la web |
 | Servidor central (PHP + PostgreSQL + MQTT + dashboard) | `server` | ✅ API REST + JWT, worker MQTT→DB, dashboard |
 | RBAC del servidor | `server` | ✅ 8 roles, permisos granulares, scope, login, dashboard de administración de usuarios, exposición (Cloudflare/nginx) |
 
@@ -29,7 +29,7 @@
 - **Import/export avanzado**: clonado, plantillas y **migraciones** (`schema_version`) — el export/import básico ya está (`/api/v1/config/export|import`).
 - **Multi-board**: ESP32-S2/S3/C3/C5/C6 + particiones dinámicas + `#if CONFIG_IDF_TARGET_*`.
 - **OTA**: manifest por plataforma (targets) + validación SHA-256 + health check/rollback.
-- **Web local**: autenticación local + hardware avanzado protegido (ADMIN + PIN/botón) — escaneo WiFi y AP por MAC ya implementados.
+- **Web local**: autenticación local ya implementada (login admin + token de sesión, §19/§154); faltan **hardware avanzado protegido** (ADMIN + PIN/botón físico para GPIO/buses, §20/§204) y la UI de gestión/rotación de credenciales.
 
 ---
 
