@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.4.0] - 2026-09-28
+
+### Added
+- Autenticación local de la web: login de administrador + token de sesión (expira 1 h).
+- Endpoints de modificación (`PUT/POST/DELETE`) protegidos; lectura (`GET`) pública (§19/§154/§204).
+- Contraseña de admin derivada del UID del dispositivo y persistida en NVS separado (no se exporta en el JSON).
+
 ## [3.3.0] - 2026-09-28
 
 ### Added
