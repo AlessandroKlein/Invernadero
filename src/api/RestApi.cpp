@@ -51,6 +51,7 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/capabilities", HTTP_GET, [this]() { handleCapabilities(); });
   server_.on("/api/v1/config/schema", HTTP_GET, [this]() { handleConfigSchema(); });
   server_.on("/api/v1/network", HTTP_GET, [this]() { handleNetwork(); });
+  server_.on("/api/v1/network/scan", HTTP_POST, [this]() { handleNetworkScan(); });
   server_.on("/api/v1/rs485", HTTP_GET, [this]() { handleRs485(); });
   server_.on("/api/v1/rs485/scan", HTTP_POST, [this]() { handleRs485Scan(); });
   server_.on("/api/v1/modbus", HTTP_GET, [this]() { handleModbus(); });
@@ -293,6 +294,25 @@ void RestApi::handleRollback() {
   // Rollback de configuración (sección 104).
   cfg_->rollback();
   server_.send(200, "application/json", "{\"ok\":true}");
+}
+
+void RestApi::handleNetworkScan() {
+  // Escaneo WiFi (§107): devuelve SSID, RSSI, canal y tipo de seguridad.
+  int n = WiFi.scanNetworks();
+  DynamicJsonDocument doc(4096);
+  JsonArray arr = doc.createNestedArray("networks");
+  for (int i = 0; i < n && i < 30; i++) {
+    JsonObject o = arr.createNestedObject();
+    o["ssid"] = WiFi.SSID(i);
+    o["rssi"] = WiFi.RSSI(i);
+    o["channel"] = WiFi.channel(i);
+    o["encryption"] = (uint8_t)WiFi.encryptionType(i);
+    o["open"] = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN);
+  }
+  doc["count"] = n;
+  String out; serializeJson(doc, out);
+  WiFi.scanDelete();
+  server_.send(200, "application/json", out);
 }
 
 String RestApi::buildStatusJson() {

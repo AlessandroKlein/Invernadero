@@ -2,6 +2,14 @@
 
 namespace gh {
 
+// §253: SSID de AP identificable a partir de los últimos 3 bytes de la MAC.
+static String apSsidFromMac() {
+  uint64_t mac = ESP.getEfuseMac();
+  char buf[24];
+  snprintf(buf, sizeof(buf), "INVERNADERO-%06X", (uint32_t)(mac & 0xFFFFFF));
+  return String(buf);
+}
+
 void NetworkManager::begin(const SystemConfig& cfg) {
   hostname_ = String(cfg.hostname).length() ? String(cfg.hostname) : "invernadero";
   WiFi.mode(WIFI_AP_STA); // permite AP y STA simultáneos
@@ -23,9 +31,13 @@ void NetworkManager::begin(const SystemConfig& cfg) {
 
 void NetworkManager::startAp(const SystemConfig& cfg) {
   apMode_ = true;
-  WiFi.softAP(cfg.apSsid, cfg.apPass);
+  // §253: si el SSID es el default legado (o vacío), derivar de la MAC.
+  String ssid = (strcmp(cfg.apSsid, "Invernadero-AP") == 0 || strlen(cfg.apSsid) == 0)
+                    ? apSsidFromMac()
+                    : String(cfg.apSsid);
+  WiFi.softAP(ssid.c_str(), cfg.apPass);
   delay(200);
-  Serial.printf("[NET] AP: %s\n", cfg.apSsid);
+  Serial.printf("[NET] AP: %s\n", ssid.c_str());
 }
 
 void NetworkManager::startSta(const SystemConfig& cfg) {
