@@ -568,23 +568,191 @@ y utilizar esa información para controlar ventilación y apertura.
 
 ---
 
-# 18. pH
+### 18. Medición de pH
 
-El pH será un módulo opcional.
+Para que el sistema sea modular y pueda utilizarse tanto en un invernadero convencional como en sistemas hidropónicos, fertirriego o instalaciones de mayor escala, la medición de pH se plantea mediante diferentes interfaces.
 
-No se incluirá obligatoriamente en la versión económica debido a:
+**18.1. Sensores analógicos económicos**
 
-* costo;
-* necesidad de calibración;
-* mantenimiento;
-* limpieza;
-* deriva de la sonda.
+Se podrá utilizar el **DFRobot Gravity Analog pH Sensor/Meter Kit SEN0161** y variantes compatibles de la familia Gravity, incluyendo el **SEN024** cuando corresponda a la aplicación.
 
-Será utilizado principalmente para:
+Estos módulos proporcionan una salida analógica proporcional a la medición realizada por el electrodo de pH y son una alternativa adecuada para instalaciones de bajo y medio costo.
 
-* hidroponía;
-* fertirriego;
-* cultivos avanzados.
+Para obtener una medición estable se recomienda:
+
+* Utilizar una entrada ADC externa de mayor resolución, preferentemente **ADS1115**, en lugar de depender exclusivamente del ADC interno del ESP32.
+* Realizar calibración mediante soluciones patrón, normalmente pH 4,00, pH 7,00 y, cuando sea necesario, pH 10,00.
+* Guardar en la configuración del ESP32 los parámetros de calibración.
+* Implementar compensación de temperatura cuando la precisión requerida lo justifique.
+* Separar eléctricamente y físicamente el circuito de pH de cargas de potencia, motores, bombas y relés.
+* Implementar filtrado digital para reducir ruido.
+* Detectar condiciones anormales como electrodo desconectado, señal fuera de rango o valores imposibles.
+
+El sistema no debería considerar que el valor de pH es válido simplemente porque existe una tensión en la entrada analógica. Debe existir un estado de **sensor válido/no válido**.
+
+---
+
+**18.2. Medición de pH mediante RS485 / Modbus RTU**
+
+Para instalaciones profesionales, distancias grandes entre sensores y controlador o cuando se requiere mayor robustez frente al ruido eléctrico, se incorporará como opción la utilización de **sensores/transmisores de pH con interfaz RS485 y protocolo Modbus RTU**.
+
+La arquitectura será:
+
+**Electrodo de pH → transmisor → RS485/Modbus RTU → ESP32**
+
+El transmisor se encarga de acondicionar la señal extremadamente pequeña del electrodo y entregar al sistema una comunicación digital mucho más apropiada para instalaciones industriales.
+
+Para implementar RS485 se podrán utilizar diferentes alternativas de interfaz, por ejemplo:
+
+* **ADM2483** u otros transceptores/interfases RS485 aisladas.
+* **SP3485** u otros transceptores RS485 de 3,3 V.
+* Módulos RS485 aislados mediante **optoacopladores**, cuando la instalación requiera mayor aislamiento eléctrico.
+* Transmisores de pH comerciales que ya incorporen directamente RS485 + Modbus RTU.
+
+En una instalación con bombas, electroválvulas, motores, contactores y variadores de frecuencia, resulta especialmente interesante la utilización de **RS485 aislado**, ya que permite separar eléctricamente el bus de comunicaciones de la electrónica principal.
+
+### 18.3. Ventajas de incorporar RS485
+
+La incorporación de RS485 no debe limitarse únicamente al sensor de pH. Se puede definir un **bus de sensores industriales del invernadero**.
+
+Por ejemplo:
+
+```text
+                         ┌── pH Modbus
+                         ├── EC Modbus
+                         ├── Temperatura Modbus
+                         ├── Humedad Modbus
+ESP32 ── RS485 ──────────┼── CO₂ Modbus
+                         ├── Oxígeno disuelto
+                         ├── ORP
+                         ├── Caudal
+                         ├── Nivel
+                         └── Otros sensores
+```
+
+Cada dispositivo tendría una dirección Modbus diferente:
+
+```text
+ID 1 → pH
+ID 2 → EC
+ID 3 → temperatura
+ID 4 → nivel
+ID 5 → caudal
+ID 6 → ORP
+...
+```
+
+Esto permite que un único bus pueda incorporar numerosos dispositivos sin tener que reservar un GPIO o una entrada ADC independiente para cada sensor.
+
+Además, RS485 permite utilizar **cables largos**, algo especialmente importante cuando el sensor está físicamente alejado del ESP32 o instalado en otro sector del invernadero.
+
+---
+
+### 18.4. Arquitectura recomendada para el sistema
+
+El firmware deberá abstraer el origen de la medición.
+
+Por ejemplo:
+
+```text
+pH_01
+ ├── tipo: ANALOG
+ ├── interfaz: ADS1115
+ ├── dirección: A0
+ ├── calibración: almacenada en NVS
+ └── estado: habilitado
+
+pH_02
+ ├── tipo: MODBUS
+ ├── interfaz: RS485
+ ├── slave_id: 1
+ ├── registro: configurable
+ └── estado: habilitado
+```
+
+Desde la página web se podrá seleccionar qué sensores están instalados, sin necesidad de modificar el firmware.
+
+La configuración podría incluir:
+
+```json
+{
+  "ph": {
+    "enabled": true,
+    "interface": "MODBUS",
+    "slave_id": 1,
+    "poll_interval": 5000,
+    "temperature_compensation": true
+  }
+}
+```
+
+Para un sensor analógico:
+
+```json
+{
+  "ph": {
+    "enabled": true,
+    "interface": "ANALOG",
+    "adc": "ADS1115",
+    "channel": 0,
+    "calibration": {
+      "ph4": 3.02,
+      "ph7": 2.51,
+      "ph10": 2.01
+    }
+  }
+}
+```
+
+Los valores concretos de calibración son solamente ilustrativos y deberán obtenerse durante la calibración real del sensor.
+
+---
+
+### 18.5. Ampliación del bus RS485
+
+La incorporación de RS485 modifica además la filosofía general del proyecto.
+
+El ESP32 no tendrá que estar limitado a sensores conectados directamente a sus GPIO, I²C, 1-Wire o ADC.
+
+Se podrá disponer de:
+
+```text
+                  ┌─ I²C
+                  │
+ESP32 ────────────┼─ SPI
+                  │
+                  ├─ 1-Wire
+                  │
+                  ├─ ADC
+                  │
+                  └─ RS485 / Modbus
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+           pH            EC           Temp.
+         Modbus         Modbus        Modbus
+```
+
+Esto permite diseñar el controlador como una **plataforma multiprotocolo**, en lugar de como una placa específica para un determinado conjunto de sensores.
+
+Además, en futuras versiones se podrán incorporar sensores industriales de:
+
+* pH
+* EC/conductividad
+* ORP
+* temperatura
+* humedad
+* CO₂
+* oxígeno disuelto
+* caudal
+* presión
+* nivel
+* radiación
+* nutrientes
+* sensores meteorológicos
+* estaciones climáticas completas
+
+siempre que el dispositivo utilice un protocolo compatible, especialmente **Modbus RTU sobre RS485**.
 
 ---
 
@@ -3607,3 +3775,47 @@ sin necesidad de modificar el código fuente.
 La configuración será almacenada en memoria no volátil y el sistema deberá conservar la capacidad de funcionar autónomamente aun cuando se pierda la comunicación con el servidor central.
 
 El ESP32 será, por tanto, el **controlador de campo autónomo**, mientras que el servidor central será la **capa de supervisión, configuración, históricos y administración de múltiples dispositivos**.
+
+La incorporación de RS485 cambia de forma importante la conclusión original. El proyecto deja de ser simplemente un controlador ESP32 con sensores conectados directamente y pasa a plantearse como una **plataforma modular de automatización de invernaderos y fertirriego**, capaz de combinar sensores económicos directamente conectados con instrumentación industrial mediante buses de comunicación.
+
+La arquitectura final queda conceptualmente:
+
+```text
+                         INVERNADERO
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+    SENSORES                ESP32              ACTUADORES
+        │                     │                     │
+        ├─ I²C                │                     ├─ Bombas
+        ├─ 1-Wire             │                     ├─ Válvulas
+        ├─ ADC                │                     ├─ Ventiladores
+        ├─ GPIO               │                     ├─ Iluminación
+        └─ RS485/Modbus ──────┤                     ├─ Calefacción
+                              │                     ├─ Humidificación
+                              │                     ├─ Ventanas
+                              │                     └─ Techo
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+             WEB LOCAL                API / MQTT
+                 │                         │
+                 └────────────┬────────────┘
+                              │
+                       SERVIDOR CENTRAL
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+                 Historial          Panel Web
+                 PostgreSQL         Multinvernadero
+```
+
+El uso de **RS485/Modbus** permite además separar físicamente los sensores del controlador, reducir la cantidad de entradas necesarias en el ESP32 y facilitar la expansión de la instalación. Una misma infraestructura puede comenzar con sensores económicos como **SEN0161/SEN024**, y posteriormente incorporar transmisores industriales sin tener que rediseñar completamente el controlador.
+
+Por lo tanto, el sistema se diseña desde el principio con una filosofía **modular, escalable y multiprotocolo**, donde cada sensor o actuador puede habilitarse, deshabilitarse, configurarse y calibrarse desde la interfaz web.
+
+La combinación de **ESP32 + I²C + SPI + 1-Wire + ADC externo + RS485/Modbus + expansión de salidas mediante 74HC595/74HCT595** permite cubrir desde un pequeño invernadero doméstico hasta instalaciones de mayor complejidad con fertirriego, climatización, instrumentación industrial y múltiples zonas de control.
+
+La principal ventaja de esta arquitectura es que **la instalación no queda atada a un único tipo de sensor ni a una cantidad fija de entradas y salidas del ESP32**. El controlador constituye el núcleo del sistema y los sensores, actuadores y módulos de comunicación funcionan como componentes intercambiables.
+
+Esto también permite que una futura versión del proyecto incorpore sensores Modbus adicionales simplemente configurando su **dirección, registros y parámetros de comunicación desde la interfaz web**, sin modificar necesariamente el firmware principal.
