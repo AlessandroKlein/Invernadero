@@ -4,6 +4,12 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.3.0] - 2026-09-28
+
+### Added
+- Variables calculadas: VPD y punto de rocío (en `SensorManager` y `/api/v1/status`) (§235).
+- Motor de reglas configurable (`control/RuleEngine`) con condiciones `variable op umbral → actuador` y API `GET/POST/DELETE /api/v1/automation` (§121/122/237).
+
 ## [3.2.0] - 2026-09-28
 
 ### Added
