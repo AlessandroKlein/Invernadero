@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Invernadero · Servidor Central</title>
+  <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('gh_theme')||'dark')}catch(e){}</script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
@@ -24,6 +25,7 @@
     <header>
       <span class="brand">🌱 Invernadero · Servidor Central</span>
       <span id="whoami" class="whoami"></span>
+      <button id="themeToggle" class="secondary" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema">🌙</button>
       <button id="logout" class="secondary">Salir</button>
     </header>
     <div class="layout">

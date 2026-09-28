@@ -198,3 +198,19 @@ if (token && user) {
   hide('#login'); show('#app');
   buildNav(); openView('devices');
 } else { showLogin(); }
+
+// Tema claro/oscuro (persistido en localStorage)
+function syncTheme(){
+  const b = document.getElementById('themeToggle');
+  if (b) b.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? '🌙' : '☀️';
+}
+const tb = document.getElementById('themeToggle');
+if (tb) {
+  tb.onclick = function(){
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('gh_theme', next); } catch(e) {}
+    syncTheme();
+  };
+}
+syncTheme();
