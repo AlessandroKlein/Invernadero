@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invernadero · Servidor Central</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <!-- Login -->
+  <div id="login" class="card center hidden">
+    <h1>Invernadero</h1>
+    <p>Servidor central</p>
+    <input id="login-user" type="text" placeholder="Usuario" value="admin">
+    <input id="login-pass" type="password" placeholder="Contraseña" value="password">
+    <button id="login-btn">Ingresar</button>
+    <p id="login-err" class="error"></p>
+  </div>
+
+  <!-- Aplicación -->
+  <div id="app" class="hidden">
+    <header>
+      <span class="brand">🌱 Invernadero · Servidor Central</span>
+      <button id="logout">Salir</button>
+    </header>
+    <div class="layout">
+      <aside id="sidebar">
+        <h2>Dispositivos</h2>
+        <ul id="device-list"></ul>
+      </aside>
+      <main id="content">
+        <div id="placeholder">Seleccioná un dispositivo para ver su detalle.</div>
+        <section id="detail" class="hidden">
+          <h2 id="detail-title"></h2>
+          <div id="device-meta" class="meta"></div>
+
+          <h3>Sensores</h3>
+          <div id="sensors" class="grid"></div>
+
+          <h3>Actuadores</h3>
+          <div id="actuators" class="grid"></div>
+
+          <h3>Alarmas</h3>
+          <ul id="alarms"></ul>
+
+          <h3>Histórico</h3>
+          <div class="chart-wrap"><canvas id="chart"></canvas></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
