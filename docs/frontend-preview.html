@@ -15,6 +15,12 @@
   --ink:#0b1120; --line:rgba(148,163,184,.16);
   --display:"Fraunces",Georgia,serif; --mono:"JetBrains Mono",monospace;
 }
+[data-theme="light"]{
+  --bg:#f1f5f9; --panel:#ffffff; --panel2:#e2e8f0;
+  --text:#0f172a; --muted:#64748b; --accent:#16a34a;
+  --accent-dim:#15803d; --warn:#d97706; --danger:#dc2626;
+  --ink:#eef2f7; --line:rgba(15,23,42,.12);
+}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
@@ -25,7 +31,7 @@ body{
 }
 .sg-top{
   position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;
-  padding:14px 24px;background:rgba(11,17,32,.82);backdrop-filter:blur(12px);
+  padding:14px 24px;background:var(--panel);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--line);
 }
 .sg-logo{display:flex;align-items:center;gap:10px}
@@ -33,6 +39,8 @@ body{
 .sg-logo h1{font-family:var(--display);font-weight:900;font-size:1.15rem;margin:0}
 .sg-logo small{display:block;font-family:var(--mono);font-size:.62rem;color:var(--muted);font-weight:400}
 .sg-pill{margin-left:auto;font-family:var(--mono);font-size:.66rem;color:var(--muted);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
+.sg-theme{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:1.05rem;line-height:1;margin-left:8px}
+.sg-theme:hover{border-color:var(--accent)}
 .sg-layout{display:flex;max-width:1280px;margin:0 auto}
 .sg-side{width:240px;flex-shrink:0;padding:28px 16px;position:sticky;top:64px;height:calc(100vh - 64px);overflow:auto}
 .sg-side h2{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px 8px}
@@ -127,6 +135,7 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
   .sg-main{padding:24px 18px 70px}
 }
 </style>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('gh_theme')||'dark')}catch(e){}</script>
 </head>
 <body>
 <header class="sg-top">
@@ -134,7 +143,8 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
     <span class="mark">🌱</span>
     <div><h1>Invernadero</h1><small>Frontend Style Guide</small></div>
   </div>
-  <span class="sg-pill">tema oscuro · acento botánico · web + servidor</span>
+  <span class="sg-pill">web + servidor</span>
+  <button id="themeToggle" class="sg-theme" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema">🌙</button>
 </header>
 
 <div class="sg-layout">
@@ -420,6 +430,17 @@ function hideModal(){ document.getElementById('demo-modal').classList.add('hidde
     });
   }, { rootMargin:'-40% 0px -55% 0px' });
   document.querySelectorAll('section.sg').forEach(s => obs.observe(s));
+})();
+(function(){
+  const btn = document.getElementById('themeToggle');
+  const sync = () => btn.textContent = (document.documentElement.getAttribute('data-theme')==='dark') ? '🌙' : '☀️';
+  sync();
+  btn.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('gh_theme', next); }catch(e){}
+    sync();
+  });
 })();
 </script>
 </body>

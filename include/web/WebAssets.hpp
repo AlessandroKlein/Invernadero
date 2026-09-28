@@ -13,6 +13,7 @@ static const char INDEX_HTML[] = R"rawliteral(<!DOCTYPE html>
 <title>Invernadero</title>
 <style>
 :root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--accent:#22c55e;--off:#94a3b8;--warn:#f59e0b;--err:#ef4444}
+[data-theme="light"]{--bg:#f1f5f9;--card:#ffffff;--fg:#0f172a;--accent:#16a34a;--off:#64748b;--warn:#d97706;--err:#dc2626}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg);padding:16px;max-width:640px;margin:auto}
 h1{font-size:1.2rem;margin-bottom:4px}
@@ -33,10 +34,12 @@ button{background:var(--card);border:1px solid var(--accent);color:var(--accent)
 input{background:var(--card);border:1px solid var(--off);color:var(--fg);border-radius:8px;padding:8px;margin:4px 0;width:100%}
 label{font-size:.8rem;color:var(--off)}
 </style>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('gh_theme')||'dark')}catch(e){}</script>
 </head>
 <body>
 <h1 id="title">Invernadero</h1>
 <div class="sub" id="subtitle">—</div>
+<button id="themeBtn" onclick="toggleTheme()" style="margin-bottom:12px;margin-right:8px">🌙</button>
 <button id="loginBtn" style="margin-bottom:12px" onclick="login()">Iniciar sesión</button>
 
 <section><h2>Sensores</h2><div class="grid" id="sensors"></div></section>
@@ -64,6 +67,14 @@ async function login(){
   else alert('Credenciales inválidas');
 }
 updateLoginUi();
+
+document.getElementById('themeBtn').textContent = (document.documentElement.getAttribute('data-theme')==='dark') ? '🌙' : '☀️';
+function toggleTheme(){
+  const n = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', n);
+  try{ localStorage.setItem('gh_theme', n); }catch(e){}
+  document.getElementById('themeBtn').textContent = n==='dark' ? '🌙' : '☀️';
+}
 
 function statusColor(s){ return s===1?'var(--accent)':(s===2?'var(--warn)':'var(--err)'); }
 
