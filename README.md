@@ -1,0 +1,3609 @@
+# PROYECTO INTEGRAL DE AUTOMATIZACIÓN MODULAR DE INVERNADERO BASADO EN ESP32
+
+## 1. Descripción general
+
+El presente proyecto propone el desarrollo de un sistema electrónico modular para la supervisión, automatización y control de invernaderos mediante microcontroladores ESP32.
+
+El sistema estará diseñado para funcionar tanto en:
+
+* invernaderos exteriores;
+* invernaderos interiores;
+* invernaderos con ventilación natural;
+* invernaderos con ventilación artificial;
+* invernaderos con apertura automática de techo o ventanas;
+* invernaderos con iluminación natural;
+* invernaderos con iluminación artificial;
+* instalaciones con uno o varios sectores de riego;
+* instalaciones con sensores ambientales básicos;
+* instalaciones con sensores agrícolas avanzados.
+
+La característica fundamental del sistema será su **configurabilidad mediante interfaz web**.
+
+No será necesario modificar el firmware cada vez que una instalación tenga una cantidad diferente de sensores o actuadores.
+
+Por ejemplo, el mismo firmware podrá utilizarse en una instalación con:
+
+* un sensor de temperatura;
+* dos ventiladores;
+* una bomba;
+* cuatro válvulas;
+
+o en otra instalación con:
+
+* dos sensores de temperatura;
+* sensores de humedad del suelo;
+* CO₂;
+* iluminación;
+* calefacción;
+* humidificador;
+* ventanas automáticas;
+* techo automático;
+* ocho zonas de riego.
+
+Los elementos disponibles estarán definidos en el firmware, mientras que la instalación concreta determinará mediante la interfaz web cuáles están habilitados.
+
+---
+
+# 2. Objetivos
+
+El sistema tendrá como objetivos principales:
+
+1. Medir las condiciones ambientales del invernadero.
+2. Medir las condiciones del suelo o sustrato.
+3. Controlar automáticamente los actuadores.
+4. Permitir funcionamiento autónomo sin conexión a Internet.
+5. Permitir funcionamiento mediante red local.
+6. Disponer de una página web local alojada en el ESP32.
+7. Disponer de API REST.
+8. Disponer de comunicación en tiempo real mediante WebSocket.
+9. Permitir integración con un servidor central.
+10. Permitir integración mediante MQTT.
+11. Permitir administrar múltiples invernaderos desde una misma plataforma.
+12. Registrar históricos y eventos.
+13. Detectar fallos de sensores.
+14. Detectar fallos de actuadores cuando sea posible.
+15. Incorporar modos de funcionamiento seguro.
+16. Permitir actualización OTA.
+17. Permitir habilitar y deshabilitar sensores y actuadores desde la interfaz web.
+18. Evitar que un usuario sin conocimientos de programación tenga que modificar el firmware.
+
+---
+
+# 3. Principio fundamental de diseño
+
+El sistema deberá separar tres conceptos:
+
+## Hardware disponible
+
+Son los sensores y actuadores que físicamente pueden conectarse.
+
+## Hardware habilitado
+
+Son los elementos que realmente posee una determinada instalación.
+
+## Funciones automáticas
+
+Son las reglas que utilizan esos elementos.
+
+Por ejemplo:
+
+```text
+Firmware
+│
+├── Sensor SHT31
+├── Sensor DS18B20
+├── Sensor humedad suelo
+├── Sensor CO₂
+├── Sensor luz
+├── Sensor nivel
+├── Sensor caudal
+│
+├── Bomba
+├── Válvula 1
+├── Válvula 2
+├── Ventilador
+├── Extractor
+├── Calefacción
+├── Iluminación
+└── Ventana
+```
+
+Pero desde la página:
+
+```text
+SENSORES
+
+☑ Temperatura/Humedad
+☑ Temperatura DS18B20
+☑ Humedad de suelo
+☐ CO₂
+☑ Nivel del tanque
+☐ Caudal
+☐ Luz PAR
+```
+
+Y:
+
+```text
+ACTUADORES
+
+☑ Bomba
+☑ Válvula 1
+☑ Válvula 2
+☑ Ventilador
+☐ Extractor
+☐ Calefacción
+☐ Humidificador
+☑ Iluminación
+☐ Ventana automática
+```
+
+El firmware deberá adaptar automáticamente las funciones disponibles.
+
+---
+
+# 4. Arquitectura general
+
+La arquitectura estará dividida en tres niveles.
+
+```text
+                 SERVIDOR CENTRAL
+                       │
+              HTTPS / MQTT / API
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+          ESP32 #1             ESP32 #2
+        Invernadero A         Invernadero B
+             │                   │
+       ┌─────┴─────┐       ┌─────┴─────┐
+       │           │       │           │
+    Sensores   Actuadores Sensores   Actuadores
+```
+
+Cada ESP32 podrá funcionar de manera autónoma.
+
+Si el servidor central deja de funcionar:
+
+```text
+Servidor ❌
+    │
+    X
+    │
+ESP32
+ │
+ ├── sensores
+ ├── reglas
+ ├── riego
+ ├── ventilación
+ └── seguridad
+```
+
+El invernadero deberá continuar funcionando.
+
+---
+
+# 5. Modos de funcionamiento
+
+Se establecerán cuatro modos principales.
+
+## AUTO
+
+El sistema controla automáticamente los actuadores.
+
+## MANUAL
+
+El usuario puede controlar determinados actuadores desde la web.
+
+## PROGRAMADO
+
+El sistema ejecuta horarios y programas definidos por el usuario.
+
+## SEGURIDAD
+
+El sistema desactiva determinadas funciones cuando existe una condición peligrosa.
+
+Por ejemplo:
+
+```text
+TEMP > límite de emergencia
+       ↓
+calefacción OFF
+       ↓
+ventilación ON
+```
+
+---
+
+# 6. Microcontrolador
+
+El controlador principal será un ESP32.
+
+Se deberá mantener compatibilidad conceptual con:
+
+* ESP32-WROOM-32;
+* ESP32 DevKitC;
+* ESP32 DOIT DevKit V1;
+* ESP32-S3.
+
+La documentación oficial del ESP32 DevKitC confirma la disponibilidad de I²C, SPI, PWM, ADC, DAC, GPIO, contador de pulsos y TWAI/CAN, entre otros periféricos.
+
+Para una primera implementación se podrá utilizar el ESP32 DevKit que ya se posee.
+
+Para una PCB definitiva se recomienda evaluar ESP32-S3.
+
+Todos ellos compartibles con N8 o N16
+
+---
+
+# 7. Sensores ambientales
+
+## 7.1 Temperatura y humedad
+
+El sensor principal recomendado será:
+
+**SHT31**
+
+Es una solución con buena relación entre prestaciones, disponibilidad y precio.
+
+El SHT31 ofrece aproximadamente:
+
+* ±2 %RH;
+* ±0,2 °C;
+* comunicación I²C;
+* alimentación de 2,4 a 5,5 V;
+* rango de humedad 0–100 %RH.
+
+También existe la variante con cubierta protectora SHT31-DIS-P, especialmente interesante para proteger el sensor frente al entorno.
+
+### Alternativa económica
+
+Podrá admitirse:
+
+**AHT20**
+
+si el precio del SHT31 resulta elevado.
+
+El software deberá abstraer el sensor:
+
+```text
+TemperatureHumiditySensor
+       │
+       ├── SHT31
+       ├── AHT10
+       └── AHT20
+```
+
+Por lo tanto, las reglas del sistema no deberán depender directamente del modelo físico.
+
+---
+
+# 8. Sensores DS18B20
+
+Para mediciones distribuidas se utilizará DS18B20.
+
+Es especialmente adecuado para:
+
+* temperatura del agua;
+* temperatura del tanque;
+* temperatura del sustrato;
+* temperatura de tuberías;
+* temperatura exterior.
+
+El DS18B20 utiliza un bus 1-Wire, permite múltiples dispositivos en el mismo bus y cada sensor dispone de un identificador único de 64 bits. Su precisión especificada es ±0,5 °C entre -10 y 85 °C.
+
+La conexión será:
+
+```text
+ESP32 GPIO
+     │
+     ├──────── DS18B20 #1
+     ├──────── DS18B20 #2
+     ├──────── DS18B20 #3
+     ├──────── DS18B20 #4
+     └──────── DS18B20 #N
+```
+
+con:
+
+```text
+DATA ─── 4,7 kΩ ─── 3,3 V
+```
+La resistencia es una en comun entre todos los sensores DS18B20
+
+Se recomienda utilizar sensores encapsulados en acero inoxidable para ambientes húmedos.
+
+---
+
+# 9. Humedad del suelo
+
+Se utilizarán sensores capacitivos.
+
+Como referencia puede utilizarse el DFRobot SEN0193 o sensores equivalentes.
+
+El sensor SEN0193 utiliza medición capacitiva en lugar de resistiva y está diseñado para reducir problemas de corrosión. También incorpora regulación para trabajar aproximadamente entre 3,3 y 5,5 V.
+
+No se recomienda utilizar sensores resistivos económicos como solución definitiva.
+
+## Importante
+
+Los valores de humedad del suelo no deben interpretarse directamente como porcentaje universal.
+
+Cada tipo de suelo deberá calibrarse.
+
+Por ejemplo:
+
+```text
+Lectura seca = 2850
+Lectura húmeda = 1450
+```
+
+El firmware convertirá esos valores a:
+
+```text
+0 % = completamente seco
+100 % = condición de calibración húmeda
+```
+
+---
+
+# 10. ADC externo
+
+Para los sensores analógicos se utilizará preferentemente:
+
+**ADS1115**
+
+El ADS1115 dispone de:
+
+* 16 bits;
+* 4 entradas;
+* I²C;
+* PGA;
+* hasta 860 muestras por segundo;
+* alimentación de 2 a 5,5 V.
+
+Esto permitirá:
+
+```text
+ADS1115
+│
+├── A0 → humedad suelo zona 1
+├── A1 → humedad suelo zona 2
+├── A2 → humedad suelo zona 3
+└── A3 → humedad suelo zona 4
+```
+
+Si se necesitan más entradas se podrá agregar un segundo ADS1115 utilizando otra dirección I²C.
+
+---
+
+# 11. Sensor de iluminación
+
+Para una solución económica se utilizará:
+
+**BH1750**
+
+Permite medir iluminación mediante I²C y es sencillo de integrar.
+
+El software deberá denominar genéricamente esta entrada:
+
+```text
+LightSensor
+```
+
+de modo que posteriormente pueda sustituirse por:
+
+* BH1750;
+* sensor de radiación;
+* sensor PAR/PPFD.
+
+---
+
+# 12. Luz y cultivo
+
+El sistema diferenciará:
+
+```text
+LUX
+```
+
+de:
+
+```text
+PPFD
+```
+
+Para una instalación doméstica se podrá utilizar lux como referencia.
+
+Para instalaciones agrícolas más avanzadas se podrá incorporar un sensor PAR.
+
+El sistema no deberá asumir que lux = PPFD.
+
+---
+
+# 13. Sensor de CO₂
+
+El sensor de CO₂ será opcional.
+
+Se recomienda:
+
+**SCD40/SCD41**
+
+pero se considerará un módulo avanzado debido a su mayor costo.
+
+La instalación económica podrá funcionar perfectamente sin CO₂.
+
+La configuración:
+
+```text
+CO₂
+[ ] Habilitado
+```
+
+deberá activar/desactivar toda la lógica relacionada.
+
+---
+
+# 14. Nivel del depósito
+
+Se recomienda combinar:
+
+### Medición continua
+
+Sensor ultrasónico impermeable.
+
+### Seguridad
+
+Dos sensores de flotador:
+
+```text
+FLOAT_LOW
+FLOAT_HIGH
+```
+
+Esto permite:
+
+```text
+Nivel analógico
++
+protección física
+```
+
+El sistema podrá mostrar:
+
+```text
+Tanque: 72 %
+```
+
+pero además:
+
+```text
+FLOAT_LOW = OK
+FLOAT_HIGH = OK
+```
+
+---
+
+# 15. Sensor de caudal
+
+Se utilizará un caudalímetro con salida por pulsos.
+
+El ESP32 calculará:
+
+```text
+litros/minuto
+litros/hora
+litros acumulados
+```
+
+Esto será especialmente importante para proteger las bombas.
+
+Ejemplo:
+
+```text
+Bomba ON
+   ↓
+esperar 5 segundos
+   ↓
+¿hay caudal?
+ ├── Sí → continuar
+ └── No → detener bomba
+```
+
+Se utilizara un Optoacoplador para vajar de los voltajes nominales (5V, 12V o 24V) a 3.3V del ESP32
+
+---
+
+# 16. Sensor de lluvia
+
+En instalaciones exteriores se podrá utilizar un pluviómetro de pulsos.
+
+No se recomienda utilizar como sensor principal de lluvia las placas resistivas económicas destinadas a proyectos educativos.
+
+El módulo deberá aparecer en la configuración:
+
+```text
+Sensor de lluvia
+[✓] Habilitado
+```
+
+En un invernadero completamente interior:
+
+```text
+[ ] Deshabilitado
+```
+
+y ninguna función deberá depender de él.
+
+Se pensara una comunicacion con estaciones meteorologias para obtener datos mas precisos ya que en muchso invernaderos esteriores poseen una.
+
+---
+
+# 17. Sensor exterior
+
+En un invernadero exterior se recomienda un segundo sensor ambiental.
+
+Se pensara una comunicacion con estaciones meteorologias para obtener datos mas precisos ya que en muchso invernaderos esteriores poseen una.
+
+```text
+EXTERIOR
+
+Temperatura
+Humedad
+Luz
+Lluvia
+```
+
+El sistema podrá entonces comparar:
+
+```text
+Interior:
+26,2 °C
+
+Exterior:
+21,5 °C
+```
+
+y utilizar esa información para controlar ventilación y apertura.
+
+---
+
+# 18. pH
+
+El pH será un módulo opcional.
+
+No se incluirá obligatoriamente en la versión económica debido a:
+
+* costo;
+* necesidad de calibración;
+* mantenimiento;
+* limpieza;
+* deriva de la sonda.
+
+Será utilizado principalmente para:
+
+* hidroponía;
+* fertirriego;
+* cultivos avanzados.
+
+---
+
+# 19. Conductividad eléctrica
+
+La EC también será opcional.
+
+Se utilizará para:
+
+* hidroponía;
+* fertirriego;
+* control de concentración de nutrientes.
+
+El sistema deberá poder trabajar perfectamente sin pH ni EC.
+
+---
+
+# 20. Actuadores
+
+El sistema soportará los siguientes tipos.
+
+Se pensara expansores como el 74HC595 / 74HCT595 para amplizar la cantidad de salidas. Las cuales pueden controlar salidas estáticas On/Off o PWM independiente, usas una técnica de Soft-PWM por hardware (enviando buffers mediante DMA o temporizadores del ESP32). A frecuencias estándar de conmutación de potencia (ej. 100Hz - 1kHz), la carga del procesador es nula. 
+
+### Ventiladores
+
+```text
+FAN_1
+FAN_2
+FAN_3
+```
+
+### Extractores
+
+```text
+EXTRACTOR_1
+EXTRACTOR_2
+```
+
+### Bombas
+
+```text
+PUMP_1
+PUMP_2
+```
+
+### Electroválvulas
+
+```text
+VALVE_1
+VALVE_2
+...
+VALVE_8
+```
+
+### Iluminación
+
+```text
+LIGHT_1
+LIGHT_2
+```
+
+### Calefacción
+
+```text
+HEATER_1
+```
+
+### Humidificación
+
+```text
+HUMIDIFIER_1
+```
+
+### Ventanas
+
+```text
+WINDOW_OPEN
+WINDOW_CLOSE
+```
+
+### Techo
+
+```text
+ROOF_OPEN
+ROOF_CLOSE
+```
+
+### Sombreado
+
+```text
+SHADE_OPEN
+SHADE_CLOSE
+```
+
+---
+
+# 21. Expansión y control de salidas de potencia
+
+La arquitectura de salidas del sistema se diseñará de forma modular, utilizando registros de desplazamiento **74HC595 o 74HCT595** para ampliar considerablemente la cantidad de salidas disponibles sin consumir un GPIO del ESP32 por cada actuador.
+
+Los registros podrán conectarse en cascada:
+
+```text
+ESP32
+ │
+ ├── DATA
+ ├── CLOCK
+ └── LATCH
+       │
+       ▼
+   74HC595 #1
+       │
+       ▼
+   74HC595 #2
+       │
+       ▼
+   74HC595 #3
+       │
+       ▼
+   74HC595 #N
+```
+
+Cada 74HC595 proporciona 8 salidas digitales, por lo que varios dispositivos conectados en cascada permiten disponer de una gran cantidad de canales utilizando únicamente unas pocas señales del ESP32.
+
+Por ejemplo:
+
+```text
+1 × 74HC595  →  8 salidas
+2 × 74HC595  → 16 salidas
+4 × 74HC595  → 32 salidas
+8 × 74HC595  → 64 salidas
+```
+
+La cantidad final dependerá de las necesidades de cada instalación.
+
+---
+
+## 21.1. Tipos de salida
+
+El sistema deberá soportar diferentes tipos de salida utilizando la misma arquitectura lógica.
+
+### Salidas digitales ON/OFF
+
+Destinadas a:
+
+* bombas;
+* electroválvulas;
+* ventiladores;
+* extractores;
+* iluminación;
+* calefacción;
+* humidificadores;
+* contactores;
+* relés;
+* alarmas;
+* motores mediante sus correspondientes drivers.
+
+Ejemplo:
+
+```text
+OUT_01 = ON
+OUT_02 = OFF
+OUT_03 = ON
+OUT_04 = OFF
+```
+
+---
+
+## 21.2. Salidas PWM
+
+Las salidas también podrán utilizarse para controlar actuadores que admitan modulación por ancho de pulso.
+
+Ejemplos:
+
+* ventiladores DC;
+* bombas DC compatibles;
+* iluminación LED;
+* válvulas proporcionales;
+* drivers de potencia;
+* sistemas de sombreado compatibles con PWM.
+
+Ejemplo:
+
+```text
+FAN_1 = 30 %
+FAN_2 = 65 %
+LIGHT_1 = 80 %
+```
+
+Sin embargo, el 74HC595 se considerará únicamente como **elemento de expansión de salidas**, no como generador PWM autónomo.
+
+La generación de PWM será responsabilidad del sistema de control del ESP32.
+
+---
+
+## 21.3. Soft-PWM mediante actualización de registros
+
+Para permitir un gran número de canales PWM sin utilizar un periférico PWM independiente para cada salida, el firmware podrá implementar una arquitectura de **Soft-PWM basada en actualización periódica de los registros 74HC595**.
+
+La idea general será:
+
+```text
+                ESP32
+                  │
+          Temporizador / DMA
+                  │
+             Buffer PWM
+                  │
+            SPI / Shift
+                  │
+                  ▼
+             74HC595
+                  │
+        ┌─────────┼─────────┐
+        │         │         │
+      OUT 1     OUT 2     OUT 3
+        │         │         │
+       PWM       PWM       PWM
+```
+
+El ESP32 mantendrá un buffer con el estado de cada canal.
+
+Por ejemplo:
+
+```text
+PWM_BUFFER[]
+
+OUT_01 = 20 %
+OUT_02 = 50 %
+OUT_03 = 75 %
+OUT_04 = 100 %
+OUT_05 = 0 %
+```
+
+El firmware calculará los estados correspondientes y actualizará periódicamente los registros.
+
+---
+
+## 21.4. Uso de SPI
+
+Aunque el 74HC595 puede controlarse mediante GPIO convencionales, se utilizará preferentemente el periférico **SPI del ESP32** para realizar las transferencias.
+
+Esto permite desplazar grandes cantidades de bits rápidamente:
+
+```text
+ESP32 SPI
+   │
+   ├── DATA
+   ├── CLOCK
+   └── LATCH
+        │
+        ▼
+   74HC595 #1
+        │
+        ▼
+   74HC595 #2
+        │
+        ▼
+   74HC595 #3
+```
+
+Por ejemplo, con 8 registros:
+
+```text
+8 × 8 = 64 bits
+```
+
+pueden actualizarse como una única trama.
+
+Esto permite mantener un número elevado de salidas sin realizar decenas de operaciones GPIO individuales.
+
+---
+
+## 21.5. DMA y temporización
+
+Cuando se requiera una cantidad elevada de canales PWM, la transmisión de los buffers podrá realizarse utilizando los mecanismos de hardware disponibles en el ESP32, incluyendo **DMA asociado al periférico SPI**, junto con temporizadores para determinar los instantes de actualización.
+
+La arquitectura será conceptualmente:
+
+```text
+                ┌──────────────────┐
+                │   PWM Scheduler  │
+                └────────┬─────────┘
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │ PWM Buffer  │
+                  └──────┬──────┘
+                         │
+                    DMA / SPI
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │ 74HC595 × N │
+                  └──────┬──────┘
+                         │
+                         ▼
+                  Drivers potencia
+                         │
+                         ▼
+                     Actuadores
+```
+
+De esta manera, una vez preparada la transferencia, el hardware puede realizar el desplazamiento de los datos sin que la CPU tenga que ejecutar una operación individual por cada salida.
+
+La carga de procesamiento deberá mantenerse muy baja incluso cuando exista una cantidad considerable de salidas.
+
+---
+
+## 21.6. Frecuencia PWM
+
+El sistema deberá permitir configurar diferentes frecuencias de PWM según el tipo de carga.
+
+Como rango inicial de diseño se considerará:
+
+```text
+100 Hz – 1 kHz
+```
+
+para aplicaciones de control de potencia de baja frecuencia.
+
+La frecuencia final dependerá del actuador y del circuito de potencia utilizado.
+
+No se utilizará necesariamente la misma frecuencia para todos los dispositivos.
+
+Por ejemplo:
+
+```text
+Iluminación LED:
+frecuencia determinada por el driver
+
+Ventilador DC:
+100–1.000 Hz según driver
+
+Válvula proporcional:
+según especificaciones del fabricante
+```
+
+Para cargas que requieran frecuencias mayores o PWM de alta precisión se podrán utilizar periféricos PWM hardware del ESP32 o controladores externos específicos.
+
+---
+
+## 21.7. Resolución PWM
+
+La arquitectura deberá permitir seleccionar la resolución necesaria para cada aplicación.
+
+Por ejemplo:
+
+```text
+8 bits:
+0 – 255
+
+10 bits:
+0 – 1023
+
+12 bits:
+0 – 4095
+```
+
+Sin embargo, la resolución efectiva dependerá de la frecuencia PWM seleccionada y de la estrategia de generación utilizada.
+
+Para la mayoría de los actuadores del invernadero será suficiente una resolución moderada.
+
+Por ejemplo:
+
+```text
+0 %   → OFF
+25 %  → 64
+50 %  → 128
+75 %  → 192
+100 % → 255
+```
+
+---
+
+## 21.8. Diferenciación entre salida lógica y salida de potencia
+
+El 74HC595 **no deberá utilizarse para alimentar directamente actuadores**.
+
+Sus salidas solamente proporcionarán las señales de control necesarias para los circuitos posteriores.
+
+La arquitectura será:
+
+```text
+ESP32
+   │
+   ▼
+74HC595
+   │
+   ▼
+Driver de salida
+   │
+   ├── MOSFET
+   ├── SSR
+   ├── Relay
+   └── Driver específico
+   │
+   ▼
+Actuador
+```
+
+Por ejemplo, para una válvula de 24 V DC:
+
+```text
+ESP32
+   │
+   ▼
+74HC595
+   │
+   ▼
+MOSFET
+   │
+   ├──── Diodo flyback
+   │
+   ▼
+Válvula 24 V
+```
+
+---
+
+## 21.9. MOSFET para cargas DC
+
+Para cargas DC se utilizarán preferentemente MOSFET adecuados a:
+
+* tensión de alimentación;
+* corriente;
+* temperatura;
+* frecuencia de conmutación;
+* disipación;
+* tensión de puerta.
+
+El diseño deberá contemplar MOSFET de nivel lógico compatibles con la tensión de control utilizada por el circuito.
+
+En cargas inductivas se incorporará la protección correspondiente.
+
+---
+
+## 21.10. Protección de cargas inductivas
+
+Para:
+
+* bombas DC;
+* electroválvulas;
+* relés;
+* motores;
+* solenoides;
+
+se incorporará protección contra la tensión inducida durante la desconexión.
+
+Para cargas DC convencionales podrá utilizarse un diodo flyback adecuadamente dimensionado.
+
+```text
+        +24 V
+          │
+       ACTUADOR
+          │
+          ├─────────|<|────────+
+          │          Diodo     │
+          │                    │
+         MOSFET                │
+          │                    │
+         GND───────────────────+
+```
+
+El componente concreto deberá dimensionarse según la tensión, corriente y naturaleza de la carga.
+
+---
+
+## 21.11. Relés y SSR
+
+Cuando sea necesario controlar cargas que no puedan manejarse directamente mediante MOSFET, el 74HC595 podrá controlar:
+
+```text
+74HC595
+   │
+   ▼
+Driver
+   │
+   ▼
+Relé / SSR
+   │
+   ▼
+Carga
+```
+
+Esto será especialmente importante para:
+
+* bombas de red eléctrica;
+* motores;
+* calefactores;
+* extractores de gran potencia;
+* iluminación de red;
+* contactores.
+
+Las cargas de red deberán mantenerse eléctricamente aisladas de la electrónica de baja tensión y deberán utilizar protecciones adecuadas.
+
+---
+
+## 21.12. Salidas PWM independientes
+
+Cada canal lógico deberá poder configurarse individualmente.
+
+Por ejemplo:
+
+```text
+OUT_01
+Tipo: DIGITAL
+Función: Bomba
+
+OUT_02
+Tipo: DIGITAL
+Función: Válvula 1
+
+OUT_03
+Tipo: PWM
+Función: Ventilador 1
+
+OUT_04
+Tipo: PWM
+Función: Ventilador 2
+
+OUT_05
+Tipo: PWM
+Función: Iluminación
+```
+
+De esta forma, la misma cadena de 74HC595 podrá utilizarse para distintos tipos de actuadores.
+
+---
+
+## 21.13. Configuración desde la interfaz web
+
+La configuración de cada salida se realizará desde la aplicación.
+
+Ejemplo:
+
+```text
+SALIDA 07
+
+Nombre:
+Ventilador principal
+
+Tipo:
+PWM
+
+Frecuencia:
+500 Hz
+
+Resolución:
+8 bits
+
+Modo:
+Automático
+
+Mínimo:
+20 %
+
+Máximo:
+100 %
+
+Estado:
+☑ Habilitado
+```
+
+Para una bomba:
+
+```text
+SALIDA 01
+
+Nombre:
+Bomba principal
+
+Tipo:
+ON/OFF
+
+Modo:
+Automático
+
+Estado:
+☑ Habilitado
+```
+
+El usuario no tendrá que modificar el código fuente.
+
+---
+
+## 21.14. Estados seguros
+
+Durante el arranque, reinicio o pérdida de comunicación, las salidas deberán asumir un estado seguro definido en la configuración.
+
+Por ejemplo:
+
+```text
+Bomba       → OFF
+Válvulas    → OFF
+Calefacción → OFF
+Techo       → según estrategia de seguridad
+Ventilación → según estrategia de seguridad
+Luz         → configuración definida
+```
+
+Esto será especialmente importante porque el 74HC595 puede conservar temporalmente estados mientras se inicializa el ESP32.
+
+El circuito deberá diseñarse para garantizar que las salidas de potencia permanezcan en un estado seguro durante el arranque.
+
+---
+
+## 21.15. Watchdog y recuperación
+
+En caso de:
+
+* bloqueo del firmware;
+* reinicio del ESP32;
+* pérdida de alimentación;
+* error de comunicación;
+
+el sistema deberá reinicializar los registros y los drivers de salida.
+
+La secuencia será:
+
+```text
+RESET
+  ↓
+GPIO en estado seguro
+  ↓
+Inicialización SPI
+  ↓
+Inicialización 74HC595
+  ↓
+Carga del PWM_BUFFER
+  ↓
+Inicialización de drivers
+  ↓
+Inicio de automatización
+```
+
+---
+
+## 21.16. Ventaja de la arquitectura
+
+La utilización de 74HC595 permite reducir considerablemente la cantidad de GPIO necesarios.
+
+Por ejemplo, para 32 salidas:
+
+```text
+Sin expansores:
+
+32 GPIO
+```
+
+Con cuatro 74HC595:
+
+```text
+ESP32
+ │
+ ├── DATA
+ ├── CLOCK
+ └── LATCH
+       │
+       └── 4 × 74HC595
+                │
+                └── 32 salidas
+```
+
+Por lo tanto, el ESP32 conserva la mayoría de sus GPIO para:
+
+* sensores;
+* buses;
+* comunicaciones;
+* interrupciones;
+* entradas de seguridad;
+* expansión futura.
+
+---
+
+## 21.17. Arquitectura recomendada
+
+La arquitectura final de salidas será:
+
+```text
+                         ESP32
+                           │
+                    ┌──────┴──────┐
+                    │             │
+                  SPI          TIMER/DMA
+                    │             │
+                    └──────┬──────┘
+                           │
+                      PWM BUFFER
+                           │
+                           ▼
+                     74HC595 × N
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+           ON/OFF         PWM          ON/OFF
+             │             │             │
+             ▼             ▼             ▼
+          MOSFET         MOSFET        DRIVER
+             │             │             │
+             ▼             ▼             ▼
+          Válvula       Ventilador     Relé/SSR
+             │             │             │
+             └─────────────┴─────────────┘
+                           │
+                        CARGAS
+```
+
+Esta arquitectura permitirá construir una plataforma de control con una cantidad muy elevada de salidas utilizando un número reducido de GPIO del ESP32 y manteniendo la posibilidad de controlar tanto cargas digitales como cargas PWM.
+
+La generación de PWM deberá implementarse de manera que la transferencia de los datos hacia los registros se realice mediante los periféricos hardware disponibles, DMA y temporización, cuando corresponda, reduciendo al mínimo la intervención directa de la CPU.
+
+Para las aplicaciones que requieran PWM de alta frecuencia, elevada resolución o sincronización estricta, se utilizarán los periféricos PWM hardware del ESP32 o controladores externos dedicados, en lugar de forzar el uso de Soft-PWM sobre los 74HC595.
+
+---
+
+# 22. Separación eléctrica
+
+El sistema deberá dividirse en:
+
+```text
+3,3 V
+Lógica ESP32
+
+5 V
+Sensores/módulos compatibles
+
+12/24 V
+Válvulas y actuadores DC
+
+230 V
+Bombas, motores, calefacción, iluminación, etc.
+```
+
+La parte de alta tensión deberá permanecer físicamente separada de la electrónica de control.
+
+La instalación deberá incorporar protecciones eléctricas apropiadas y ser realizada de acuerdo con las normas aplicables.
+
+---
+
+# 23. Expansión de entradas y salidas
+
+Para la expansión de GPIOs y control de salidas digitales/PWM se consideran tres arquitecturas según la interfaz y topología requeridas:
+
+---
+
+### 1. Expansión vía I²C (Entradas/Salidas Bidireccionales)
+
+Se utilizará el **MCP23017** (o su equivalente SPI **MCP23S17**).
+
+Proporciona 16 GPIOs configurables como entrada o salida, dispone de interrupciones independientes (INTA/INTB) y permite hasta ocho dispositivos en el mismo bus mediante direccionamiento por hardware (pines A0, A1, A2).
+
+---
+
+### 2. Expansión vía SPI Independiente (Con pines CS dedicados)
+
+Se utilizará el **MCP23S17**.
+
+Es la versión SPI del MCP23017. Ofrece las mismas 16 E/S digitales e interrupciones por dispositivo, pero operando a mayor velocidad de bus. Requiere las líneas globales `SCLK`, `MOSI`, `MISO` y una línea de selección (*Chip Select*) dedicada por cada integrado adicional.
+
+---
+
+### 3. Expansión vía SPI en Cascada / Daisy Chain (Sin pines CS adicionales)
+
+Se utilizará el **74HC595 / 74HCT595** (para salidas digitales) o el **TLC5947** (para salidas PWM de 12 bits).
+
+Permiten encadenar múltiples integrados en serie (*Daisy Chain*) utilizando únicamente 3 pines del microcontrolador (`MOSI`, `SCLK`, `LATCH`), sin necesidad de añadir líneas CS adicionales a medida que crece el bus.
+
+* **74HC595 / 74HCT595:** Registro de desplazamiento de 8 salidas tipo *totem-pole* (Push-Pull). Alimentado a 5V acepta niveles lógicos de 3.3V en sus entradas SPI y entrega 5V reales en las salidas.
+* **TLC5947:** Expansor de 24 salidas PWM independientes por hardware.
+
+La salida de datos del primer integrado (`DOUT` / `Q7'`) se conecta a la entrada de datos del siguiente (`DIN` / `DS`), compartiendo todos los chips el mismo reloj y señal de captura.
+
+---
+
+### Ejemplo de topologías:
+
+```text
+ESP32
+ │
+ ├── Bus I²C
+ │    ├── ADS1115
+ │    ├── SHT31
+ │    ├── MCP23017 #1 (Dirección 0x20)
+ │    └── MCP23017 #2 (Dirección 0x21)
+ │
+ ├── Bus SPI Independiente (Líneas CS dedicadas)
+ │    ├── SCLK ──────┬──────────────┐
+ │    ├── MOSI ──────┼──────────────┤
+ │    ├── MISO ──────┼──────────────┤
+ │    ├── CS_1 ───── MCP23S17 #1    │
+ │    └── CS_2 ──────────────── MCP23S17 #2
+ │
+ └── Bus SPI en Cascada / Daisy Chain (3 pines fijos)
+      ├── SCLK ──────┬──────────────┬──────────────┐
+      ├── LATCH ─────┼──────────────┼──────────────┤
+      └── MOSI ───> [DIN] 595 #1 [DOUT] ───> [DIN] 595 #2 [DOUT] ───> [DIN] 595 #3 ...
+
+```
+
+---
+
+# 24. Organización de las salidas
+
+Ejemplo:
+
+```text
+MCP23017 #1
+
+GPIO A0 → Bomba 1
+GPIO A1 → Válvula 1
+GPIO A2 → Válvula 2
+GPIO A3 → Válvula 3
+GPIO A4 → Válvula 4
+GPIO A5 → Ventilador 1
+GPIO A6 → Ventilador 2
+GPIO A7 → Extractor 1
+
+GPIO B0 → Calefacción
+GPIO B1 → Humidificador
+GPIO B2 → Luz 1
+GPIO B3 → Luz 2
+GPIO B4 → Alarma
+GPIO B5 → Reserva
+GPIO B6 → Reserva
+GPIO B7 → Reserva
+```
+
+Segundo expansor:
+
+```text
+MCP23017 #2
+
+Ventana
+Techo
+Sombreado
+Finales de carrera
+Entradas digitales
+Reservas
+```
+
+---
+
+# 25. Entradas de seguridad
+
+Las siguientes entradas tendrán prioridad sobre las órdenes normales:
+
+```text
+EMERGENCY_STOP
+
+TANK_LOW
+
+PUMP_FAULT
+
+WINDOW_LIMIT_OPEN
+
+WINDOW_LIMIT_CLOSE
+
+ROOF_LIMIT_OPEN
+
+ROOF_LIMIT_CLOSE
+```
+
+---
+
+# 26. Control de techo y ventanas
+
+En un invernadero exterior:
+
+```text
+Temperatura alta
++
+humedad adecuada
++
+sin lluvia
+        ↓
+abrir techo
+```
+
+Pero:
+
+```text
+Lluvia
+     ↓
+cerrar techo
+```
+
+También se deberá incorporar:
+
+```text
+FINAL_OPEN
+FINAL_CLOSE
+```
+
+para evitar que el motor siga funcionando cuando ya llegó al extremo.
+
+---
+
+# 27. Invernadero interior
+
+En un invernadero interior se deshabilitarán:
+
+```text
+Techo
+Lluvia
+Ventanas exteriores
+```
+
+y podrán habilitarse:
+
+```text
+Ventiladores
+Extractores
+Calefacción
+Humidificador
+Deshumidificador
+Iluminación
+CO₂
+Riego
+```
+
+La misma aplicación seguirá funcionando.
+
+---
+
+# 28. Invernadero exterior
+
+Podrá habilitar:
+
+```text
+Temperatura exterior
+Humedad exterior
+Lluvia
+Techo
+Ventanas
+Ventilación
+Sombreado
+Riego
+```
+
+---
+
+# 29. Iluminación natural
+
+Si:
+
+```text
+Luz natural = suficiente
+```
+
+la iluminación artificial podrá permanecer apagada.
+
+Si:
+
+```text
+Luz natural < mínimo
+```
+
+se podrá activar:
+
+```text
+LIGHT_1
+```
+
+---
+
+# 30. Iluminación artificial
+
+La configuración permitirá:
+
+```text
+Modo:
+☐ Manual
+☑ Horario
+☐ Automático por luz
+☐ Automático por PPFD
+```
+
+También:
+
+```text
+Hora inicio: 06:00
+Hora final: 22:00
+
+Intensidad: 80 %
+```
+
+---
+
+# 31. Control de temperatura
+
+La temperatura se controlará mediante histéresis.
+
+Ejemplo:
+
+```text
+Objetivo: 24 °C
+
+Ventilación ON:
+28 °C
+
+Ventilación OFF:
+25 °C
+```
+
+Esto evita que el ventilador esté constantemente encendiéndose y apagándose.
+
+---
+
+# 32. Control de humedad
+
+Ejemplo:
+
+```text
+RH mínima: 55 %
+RH objetivo: 70 %
+RH máxima: 85 %
+```
+
+Si:
+
+```text
+RH < 55 %
+```
+
+se podrá activar humidificación.
+
+Si:
+
+```text
+RH > 85 %
+```
+
+se podrá activar ventilación o extracción.
+
+---
+
+# 33. Control de humedad del suelo
+
+Cada zona podrá tener su propia configuración.
+
+```text
+ZONA 1
+
+Mínimo: 35 %
+Objetivo: 55 %
+Máximo: 70 %
+```
+
+Y:
+
+```text
+ZONA 2
+
+Mínimo: 45 %
+Objetivo: 60 %
+Máximo: 75 %
+```
+
+Esto evita obligar a todos los cultivos a utilizar el mismo nivel de humedad.
+
+---
+
+# 34. Sistema de riego
+
+Cada zona tendrá:
+
+```text
+Sensor de suelo
+Válvula
+```
+
+y podrá compartir:
+
+```text
+Bomba principal
+```
+
+Ejemplo:
+
+```text
+PUMP_1
+   │
+   ├── VALVE_1 → Zona 1
+   ├── VALVE_2 → Zona 2
+   ├── VALVE_3 → Zona 3
+   └── VALVE_4 → Zona 4
+```
+
+---
+
+# 35. Secuencia de riego
+
+```text
+Necesidad de riego
+       ↓
+comprobar tanque
+       ↓
+comprobar emergencia
+       ↓
+abrir válvula
+       ↓
+encender bomba
+       ↓
+esperar caudal
+       ↓
+confirmar caudal
+       ↓
+regar
+       ↓
+alcanzar objetivo
+       ↓
+bomba OFF
+       ↓
+válvula OFF
+```
+
+---
+
+# 36. Protección de bomba
+
+El sistema deberá detectar:
+
+### Bomba funcionando sin agua
+
+```text
+Bomba ON
+Caudal = 0
+```
+
+Resultado:
+
+```text
+Bomba OFF
+ALARMA
+```
+
+### Rotura de tubería
+
+```text
+Caudal > máximo esperado
+```
+
+Resultado:
+
+```text
+Bomba OFF
+ALARMA
+```
+
+### Tanque vacío
+
+```text
+FLOAT_LOW = activo
+```
+
+Resultado:
+
+```text
+Bomba bloqueada
+```
+
+---
+
+# 37. Configuración desde página web
+
+La configuración deberá permitir modificar sin programación:
+
+```text
+CONFIGURACIÓN GENERAL
+
+Nombre
+ID del dispositivo
+Zona horaria
+Unidades
+Idioma
+Modo de operación
+```
+
+---
+
+# 38. Configuración de sensores
+
+Cada sensor tendrá:
+
+```text
+Nombre
+Tipo
+Dirección
+Zona
+Habilitado
+Intervalo de lectura
+Calibración
+Valor mínimo
+Valor máximo
+```
+
+Ejemplo:
+
+```text
+Sensor:
+
+Nombre:
+Temperatura principal
+
+Tipo:
+SHT31
+
+Zona:
+General
+
+Estado:
+☑ Habilitado
+
+Intervalo:
+5 segundos
+```
+
+---
+
+# 39. Configuración de actuadores
+
+Cada actuador tendrá:
+
+```text
+Nombre
+Tipo
+GPIO lógico
+Zona
+Habilitado
+Modo manual
+Modo automático
+Tiempo mínimo ON
+Tiempo mínimo OFF
+```
+
+El usuario no deberá conocer qué GPIO físico se utiliza.
+
+Por ejemplo:
+
+```text
+Ventilador principal
+```
+
+en lugar de:
+
+```text
+GPIO 27
+```
+
+---
+
+# 40. Configuración de zonas
+
+El sistema tendrá una estructura:
+
+```text
+Invernadero
+│
+├── Zona 1
+│   ├── sensores
+│   ├── válvula
+│   └── riego
+│
+├── Zona 2
+│   ├── sensores
+│   ├── válvula
+│   └── riego
+│
+└── Zona 3
+```
+
+Esto permitirá ampliar la instalación sin cambiar la arquitectura.
+
+---
+
+# 41. API REST
+
+El ESP32 deberá disponer de:
+
+```text
+/api/v1/
+```
+
+### Estado general
+
+```http
+GET /api/v1/status
+```
+
+### Sensores
+
+```http
+GET /api/v1/sensors
+```
+
+### Actuadores
+
+```http
+GET /api/v1/actuators
+```
+
+### Configuración
+
+```http
+GET /api/v1/config
+```
+
+```http
+PUT /api/v1/config
+```
+
+### Eventos
+
+```http
+GET /api/v1/events
+```
+
+### Alarmas
+
+```http
+GET /api/v1/alarms
+```
+
+---
+
+# 42. Control de actuadores
+
+Ejemplo:
+
+```http
+POST /api/v1/actuators/pump1
+```
+
+```json
+{
+    "state": true
+}
+```
+
+Sin embargo, las órdenes manuales deberán estar sujetas al sistema de seguridad.
+
+Por ejemplo, una orden:
+
+```text
+Bomba ON
+```
+
+será rechazada si:
+
+```text
+TANQUE VACÍO
+```
+
+---
+
+# 43. Configuración
+
+Ejemplo:
+
+```http
+PUT /api/v1/config
+```
+
+```json
+{
+    "climate": {
+        "temperature_min": 18,
+        "temperature_target": 24,
+        "temperature_max": 28
+    }
+}
+```
+
+---
+
+# 44. WebSocket
+
+Se utilizará:
+
+```text
+/ws
+```
+
+para enviar datos en tiempo real.
+
+Ejemplo:
+
+```json
+{
+    "temperature": 24.6,
+    "humidity": 71.2,
+    "soil": [53, 49, 62],
+    "tank": 76,
+    "pump": false,
+    "fan": true
+}
+```
+
+Esto permitirá que el dashboard se actualice sin recargar la página.
+
+---
+
+# 45. MQTT
+
+Cuando exista un servidor central se utilizará MQTT.
+
+Ejemplo:
+
+```text
+greenhouse/GH001/state
+greenhouse/GH001/sensors
+greenhouse/GH001/actuators
+greenhouse/GH001/events
+greenhouse/GH001/alarms
+greenhouse/GH001/config
+greenhouse/GH001/cmd
+```
+
+---
+
+# 46. Funcionamiento unitario
+
+Cuando no existe servidor central:
+
+```text
+ESP32
+│
+├── Web local
+├── API
+├── WebSocket
+├── Configuración
+├── Automatización
+└── Historial local
+```
+
+El usuario podrá acceder desde:
+
+```text
+http://invernadero.local
+```
+
+o mediante la IP asignada.
+
+---
+
+# 47. Funcionamiento centralizado
+
+Cuando existe servidor:
+
+```text
+                   SERVIDOR
+
+                 PostgreSQL
+                     │
+                 API REST
+                     │
+              Dashboard Web
+                     │
+                 MQTT Broker
+                     │
+       ┌─────────────┼─────────────┐
+       │             │             │
+     GH001         GH002         GH003
+       │             │             │
+     ESP32         ESP32         ESP32
+```
+
+---
+
+# 48. Servidor central
+
+El servidor podrá gestionar:
+
+* usuarios;
+* permisos;
+* invernaderos;
+* dispositivos;
+* sensores;
+* actuadores;
+* configuraciones;
+* históricos;
+* alarmas;
+* eventos;
+* firmware;
+* actualizaciones OTA.
+
+---
+
+# 49. Base de datos
+
+Se recomienda PostgreSQL.
+
+Tablas principales:
+
+```text
+users
+greenhouses
+devices
+zones
+sensors
+actuators
+sensor_readings
+events
+alarms
+configurations
+irrigation_events
+firmware_versions
+```
+
+---
+
+# 50. Identificación de dispositivos
+
+Cada ESP32 tendrá:
+
+```text
+device_id
+```
+
+Ejemplo:
+
+```text
+GH-001
+GH-002
+GH-003
+```
+
+Además se almacenará:
+
+```text
+MAC
+chip ID
+firmware version
+hardware version
+last seen
+```
+
+---
+
+# 51. Configuración almacenada
+
+La configuración se guardará en memoria no volátil.
+
+Ejemplo:
+
+```json
+{
+    "device": {
+        "id": "GH001",
+        "name": "Invernadero Principal"
+    },
+
+    "features": {
+        "temperature": true,
+        "humidity": true,
+        "soil": true,
+        "co2": false,
+        "rain": true,
+        "tank": true,
+        "flow": true,
+        "roof": true,
+        "lighting": true,
+        "heating": false,
+        "humidifier": false
+    }
+}
+```
+
+---
+
+# 52. Ventaja del sistema de funciones
+
+Esto permite que el firmware sea único.
+
+Por ejemplo:
+
+### Instalación A
+
+```text
+CO₂ = OFF
+Calefacción = OFF
+Techo = OFF
+Riego = ON
+```
+
+### Instalación B
+
+```text
+CO₂ = ON
+Calefacción = ON
+Techo = ON
+Riego = ON
+```
+
+Ambas utilizan el mismo firmware.
+
+---
+
+# 53. Detección automática de hardware
+
+Cuando sea posible, el sistema podrá detectar:
+
+```text
+SHT31 encontrado
+ADS1115 encontrado
+MCP23017 encontrado
+SCD41 no encontrado
+```
+
+La web podrá mostrar:
+
+```text
+DISPOSITIVOS DETECTADOS
+
+✓ SHT31
+✓ ADS1115
+✓ MCP23017
+✗ SCD41
+✓ DS18B20 x 4
+```
+
+Pero la detección física no deberá habilitar automáticamente funciones peligrosas.
+
+La activación deberá requerir confirmación/configuración.
+
+---
+
+# 54. Calibración
+
+La web deberá incluir:
+
+```text
+CALIBRACIÓN
+```
+
+para:
+
+### Humedad de suelo
+
+```text
+Seco
+[Guardar]
+
+Húmedo
+[Guardar]
+```
+
+### pH
+
+```text
+pH 4
+pH 7
+pH 10
+```
+
+### EC
+
+Según el sensor y solución de calibración correspondiente.
+
+---
+
+# 55. Diagnóstico
+
+La página deberá disponer de:
+
+```text
+DIAGNÓSTICO
+
+WiFi          OK
+MQTT          OK
+SHT31         OK
+DS18B20       OK
+ADS1115       OK
+MCP23017      OK
+Bomba         OK
+Caudal        OK
+Tanque        OK
+```
+
+---
+
+# 56. Estado de sensores
+
+Nunca se deberá asumir que una lectura es válida.
+
+Cada sensor tendrá:
+
+```text
+OK
+WARNING
+ERROR
+DISCONNECTED
+OUT_OF_RANGE
+```
+
+Ejemplo:
+
+```text
+Temperatura:
+24,5 °C
+Estado: OK
+```
+
+Si un DS18B20 devuelve una lectura inválida:
+
+```text
+Temperatura:
+---
+Estado:
+ERROR
+```
+
+La automatización deberá saber que ese valor no puede utilizarse.
+
+---
+
+# 57. Sistema de seguridad
+
+La seguridad tendrá prioridad sobre la automatización.
+
+Jerarquía:
+
+```text
+EMERGENCIA
+     ↓
+SEGURIDAD
+     ↓
+MANUAL
+     ↓
+AUTOMÁTICO
+     ↓
+PROGRAMACIÓN
+```
+
+---
+
+# 58. Watchdog
+
+El firmware deberá implementar watchdog.
+
+Si una tarea se bloquea:
+
+```text
+bloqueo
+   ↓
+watchdog
+   ↓
+reinicio
+   ↓
+recuperación
+```
+
+Después del reinicio se restaurará la configuración.
+
+---
+
+# 59. OTA
+
+El firmware deberá poder actualizarse sin conectar físicamente el ESP32.
+
+```text
+Servidor
+   ↓
+Firmware
+   ↓
+OTA
+   ↓
+ESP32
+   ↓
+verificación
+   ↓
+reinicio
+```
+
+Se deberá utilizar un sistema de rollback para evitar dejar inutilizado el dispositivo por una actualización defectuosa.
+
+---
+
+# 60. Página principal
+
+La pantalla principal deberá mostrar:
+
+```text
+┌───────────────────────────────────────────┐
+│ INVERNADERO PRINCIPAL                     │
+│ Estado: AUTOMÁTICO                        │
+├───────────────────────────────────────────┤
+│                                           │
+│ Temperatura       24,6 °C                 │
+│ Humedad           71 %                    │
+│ Suelo Z1          54 %                    │
+│ Suelo Z2          61 %                    │
+│ Tanque            76 %                    │
+│ Luz               18.200 lux              │
+│                                           │
+├───────────────────────────────────────────┤
+│ ACTUADORES                                │
+│                                           │
+│ Ventilador       ● ON                     │
+│ Extractor        ○ OFF                    │
+│ Bomba            ○ OFF                    │
+│ Iluminación      ● ON                     │
+│ Calefacción      ○ OFF                    │
+│                                           │
+├───────────────────────────────────────────┤
+│ ALARMAS                                   │
+│ ✓ Sin alarmas                             │
+└───────────────────────────────────────────┘
+```
+
+---
+
+# 61. Página de configuración
+
+```text
+CONFIGURACIÓN
+
+[ Sensores ]
+[ Actuadores ]
+[ Zonas ]
+[ Clima ]
+[ Riego ]
+[ Iluminación ]
+[ Red ]
+[ MQTT ]
+[ Seguridad ]
+[ Sistema ]
+```
+
+---
+
+# 62. Configuración de funciones
+
+Ejemplo:
+
+```text
+CONTROL CLIMÁTICO
+
+☑ Control de temperatura
+☑ Control de humedad
+☑ Ventilación
+☐ Calefacción
+☐ Humidificación
+☑ Control de CO₂
+```
+
+El usuario podrá habilitar o deshabilitar funciones sin modificar código.
+
+---
+
+# 63. Configuración del tipo de invernadero
+
+Se incluirá:
+
+```text
+TIPO DE INSTALACIÓN
+
+( ) Interior
+( ) Exterior
+( ) Mixto
+```
+
+Pero esta selección no determinará exclusivamente las funciones.
+
+Por ejemplo, un invernadero exterior podrá tener:
+
+```text
+☑ Techo automático
+☑ Ventilación
+☑ Riego
+☐ Calefacción
+☐ CO₂
+```
+
+---
+
+# 64. Configuración de clima
+
+```text
+TEMPERATURA
+
+Mínimo:       18 °C
+Objetivo:     24 °C
+Máximo:       28 °C
+Emergencia:   35 °C
+
+HISTÉRESIS:
+2 °C
+```
+
+---
+
+# 65. Configuración de humedad
+
+```text
+HUMEDAD
+
+Mínimo:       55 %
+Objetivo:     70 %
+Máximo:       85 %
+
+HISTÉRESIS:
+5 %
+```
+
+---
+
+# 66. Configuración de riego
+
+```text
+RIEGO
+
+Modo:
+[ Automático ]
+
+Humedad mínima:
+35 %
+
+Humedad objetivo:
+55 %
+
+Tiempo máximo:
+15 min
+
+Caudal mínimo:
+1,0 L/min
+
+Horario permitido:
+04:00 - 09:00
+18:00 - 22:00
+```
+
+---
+
+# 67. Configuración de ventilación
+
+```text
+VENTILACIÓN
+
+Activar:
+28 °C
+
+Desactivar:
+25 °C
+
+Humedad máxima:
+85 %
+
+Tiempo mínimo ON:
+60 s
+
+Tiempo mínimo OFF:
+120 s
+```
+
+---
+
+# 68. Configuración de techo
+
+```text
+TECHO
+
+☑ Habilitado
+
+Abrir:
+28 °C
+
+Cerrar:
+24 °C
+
+Cerrar por lluvia:
+☑
+
+Cerrar por viento:
+☑
+
+Final de carrera:
+☑
+```
+
+---
+
+# 69. Sensor de viento
+
+Para instalaciones exteriores avanzadas se recomienda incorporar:
+
+```text
+anemómetro
+```
+
+Esto permite implementar una condición como:
+
+```text
+viento fuerte
+     ↓
+cerrar techo
+```
+
+Esta función es particularmente importante en estructuras exteriores.
+
+---
+
+# 70. Sombreado
+
+Podrá configurarse:
+
+```text
+Luz máxima:
+80.000 lux
+
+Abrir sombreado:
+> 80.000
+
+Retirar sombreado:
+< 60.000
+```
+
+También se podrá utilizar PPFD cuando exista un sensor compatible.
+
+---
+
+# 71. Automatización combinada
+
+Las decisiones no se tomarán exclusivamente con un sensor.
+
+Ejemplo:
+
+```text
+Temperatura alta
++
+humedad alta
++
+exterior más frío
++
+sin lluvia
+```
+
+puede provocar:
+
+```text
+abrir techo
+```
+
+Mientras:
+
+```text
+temperatura alta
++
+lluvia
+```
+
+puede provocar:
+
+```text
+cerrar techo
+activar extractor
+```
+
+---
+
+# 72. Prioridad de condiciones
+
+Ejemplo:
+
+```text
+NORMAL
+  ↓
+temperatura alta
+  ↓
+ventilación
+
+temperatura crítica
+  ↓
+ventilación máxima
+
+lluvia
+  ↓
+cerrar techo
+
+viento fuerte
+  ↓
+cerrar techo
+
+emergencia
+  ↓
+estado seguro
+```
+
+---
+
+# 73. Almacenamiento local
+
+El ESP32 podrá almacenar:
+
+* configuración;
+* eventos recientes;
+* alarmas;
+* estadísticas;
+* estado anterior.
+
+Para históricos extensos se recomienda:
+
+```text
+servidor central
+```
+
+o almacenamiento externo como:
+
+```text
+microSD
+```
+
+si el sistema debe funcionar completamente desconectado.
+
+---
+
+# 74. Comunicación con servidor
+
+La comunicación central será:
+
+```text
+ESP32
+ │
+ ├── MQTT → tiempo real
+ │
+ └── HTTPS REST → configuración/administración
+```
+
+El ESP32 deberá poder seguir funcionando si ambos servicios están desconectados.
+
+---
+
+# 75. Seguridad de comunicaciones
+
+Para instalaciones conectadas a Internet se utilizará:
+
+```text
+HTTPS
+MQTTS
+```
+
+y autenticación.
+
+Espressif documenta soporte para OTA mediante HTTPS y mecanismos de seguridad como Secure Boot y Flash Encryption para aplicaciones de producción.
+
+---
+
+# 76. Seguridad de usuarios
+
+La aplicación central deberá permitir:
+
+```text
+ADMIN
+```
+
+```text
+OPERADOR
+```
+
+```text
+CONSULTA
+```
+
+Por ejemplo:
+
+### Administrador
+
+Puede modificar todo.
+
+### Operador
+
+Puede:
+
+* activar riego;
+* modificar parámetros;
+* consultar alarmas.
+
+### Consulta
+
+Solo puede visualizar.
+
+---
+
+# 77. Registro de eventos
+
+Ejemplo:
+
+```text
+28/09/2026 08:01
+
+Riego Zona 1 iniciado.
+
+Motivo:
+Humedad de suelo < 35 %
+
+08:01:05
+
+Caudal detectado:
+2,7 L/min
+
+08:08
+
+Riego finalizado.
+
+Humedad:
+54 %
+```
+
+---
+
+# 78. Alarmas
+
+Se implementarán como mínimo:
+
+```text
+TEMP_HIGH
+TEMP_LOW
+
+HUMIDITY_HIGH
+HUMIDITY_LOW
+
+SOIL_DRY
+
+TANK_LOW
+
+PUMP_NO_FLOW
+PUMP_FLOW_HIGH
+
+SENSOR_ERROR
+
+NETWORK_ERROR
+
+MQTT_ERROR
+
+ROOF_ERROR
+
+WINDOW_ERROR
+
+ACTUATOR_ERROR
+```
+
+---
+
+# 79. Alarmas con recuperación
+
+No todas las alarmas requieren intervención humana.
+
+Ejemplo:
+
+```text
+WiFi desconectado
+```
+
+No deberá detener el invernadero.
+
+En cambio:
+
+```text
+Bomba ON
+Caudal = 0
+```
+
+deberá detener la bomba.
+
+---
+
+# 80. Arquitectura de software
+
+El firmware se dividirá en módulos:
+
+```text
+src/
+
+main.cpp
+
+config/
+    ConfigManager
+    Defaults
+    Calibration
+
+sensors/
+    SensorManager
+    SHT31
+    AHT20
+    DS18B20
+    SoilMoisture
+    BH1750
+    CO2
+    Flow
+    Tank
+    Rain
+    Wind
+
+actuators/
+    ActuatorManager
+    Pump
+    Valve
+    Fan
+    Heater
+    Humidifier
+    Light
+    Window
+    Roof
+    Shade
+
+control/
+    ClimateController
+    IrrigationController
+    LightingController
+    RoofController
+    SafetyController
+
+network/
+    WiFiManager
+    MQTTManager
+    NetworkManager
+
+api/
+    REST
+    WebSocket
+    Authentication
+
+storage/
+    NVS
+    History
+
+system/
+    Watchdog
+    OTA
+    Diagnostics
+```
+
+---
+
+# 81. Principio de abstracción
+
+El controlador no deberá tener código como:
+
+```cpp
+if (SHT31.temperature() > 28)
+```
+
+directamente en toda la aplicación.
+
+En su lugar:
+
+```text
+SensorManager
+      ↓
+temperature
+      ↓
+ClimateController
+      ↓
+ActuatorManager
+      ↓
+fan
+```
+
+Esto permitirá cambiar SHT31 por AHT20 sin modificar el sistema de climatización.
+
+---
+
+# 82. Configuración por JSON
+
+La configuración podría tener una estructura semejante a:
+
+```json
+{
+  "greenhouse": {
+    "id": "GH001",
+    "name": "Invernadero Principal",
+    "type": "outdoor"
+  },
+
+  "features": {
+    "climate": true,
+    "irrigation": true,
+    "lighting": true,
+    "co2": false,
+    "heating": false,
+    "humidification": false,
+    "roof": true,
+    "windows": false,
+    "shade": true
+  },
+
+  "sensors": {
+    "sht31": true,
+    "ds18b20": true,
+    "soil": true,
+    "light": true,
+    "co2": false,
+    "rain": true,
+    "tank": true,
+    "flow": true
+  },
+
+  "actuators": {
+    "pump": true,
+    "valves": 4,
+    "fans": 2,
+    "extractors": 1,
+    "lights": 1,
+    "heater": false,
+    "humidifier": false,
+    "roof": true
+  }
+}
+```
+
+---
+
+# 83. Principio de seguridad de configuración
+
+Deshabilitar un elemento deberá significar que:
+
+```text
+no se utiliza
+```
+
+pero no deberá provocar:
+
+```text
+GPIO flotante
+```
+
+ni activar accidentalmente una salida.
+
+Al arrancar:
+
+```text
+todas las salidas → estado seguro
+```
+
+y posteriormente:
+
+```text
+cargar configuración
+        ↓
+inicializar hardware
+        ↓
+verificar sensores
+        ↓
+iniciar automatización
+```
+
+---
+
+# 84. Configuración predeterminada
+
+El firmware deberá incorporar una configuración inicial.
+
+Ejemplo:
+
+```text
+Temperatura:
+18 / 24 / 28 °C
+
+Humedad:
+55 / 70 / 85 %
+
+Suelo:
+35 / 55 / 70 %
+
+Riego:
+automático deshabilitado hasta configuración
+
+CO₂:
+deshabilitado
+
+Calefacción:
+deshabilitada
+
+Techo:
+deshabilitado
+
+Iluminación:
+deshabilitada
+```
+
+Esto evita activar automáticamente un actuador que físicamente todavía no fue configurado.
+
+---
+
+# 85. Restablecimiento de fábrica
+
+La placa deberá disponer de:
+
+```text
+BOOT / RESET
+```
+
+y un procedimiento como:
+
+```text
+mantener botón 5 segundos
+```
+
+para:
+
+```text
+restaurar configuración
+```
+
+pero sin borrar necesariamente el firmware.
+
+---
+
+# 86. Conectividad inicial
+
+Al instalar un ESP32 nuevo:
+
+```text
+ESP32
+ ↓
+Access Point temporal
+ ↓
+configuración WiFi
+ ↓
+red local
+ ↓
+mDNS
+```
+
+El usuario podrá configurar:
+
+```text
+SSID
+Password
+hostname
+MQTT
+servidor
+zona horaria
+```
+
+---
+
+# 87. Arquitectura de red
+
+El dispositivo deberá soportar:
+
+```text
+WiFi
+```
+
+y opcionalmente:
+
+```text
+Ethernet
+```
+
+en una versión futura.
+
+Para instalaciones grandes, Ethernet puede resultar más apropiado que Wi-Fi.
+
+---
+
+# 88. CAN/TWAI futuro
+
+El diseño deberá dejar abierta la posibilidad de utilizar:
+
+```text
+CAN / TWAI
+```
+
+para nodos distribuidos.
+
+Ejemplo:
+
+```text
+ESP32 CENTRAL
+      │
+     CAN
+      │
+ ┌────┼─────┐
+ │    │     │
+Nodo Nodo  Nodo
+Riego Clima Actuadores
+```
+
+Esto permitirá evitar largas conexiones de sensores hacia un único ESP32.
+
+---
+
+# 89. Diseño modular por nodos
+
+Para un invernadero pequeño:
+
+```text
+1 ESP32
+```
+
+Para uno grande:
+
+```text
+ESP32 central
++
+ESP32 riego
++
+ESP32 clima
++
+ESP32 actuadores
+```
+
+Todos podrán utilizar el mismo concepto de firmware.
+
+---
+
+# 90. Lista de materiales recomendada
+
+## Control
+
+* ESP32 DevKitC / ESP32 DOIT / ESP32-S3.
+* Fuente 5 V adecuada.
+* Regulación 3,3 V si corresponde.
+* Caja eléctrica.
+
+## Sensores económicos/recomendados
+
+* SHT31.
+* DS18B20.
+* Sensores capacitivos de humedad.
+* ADS1115.
+* BH1750.
+* Caudalímetro de pulsos.
+* Flotadores.
+* Sensor ultrasónico impermeable.
+
+## Sensores avanzados
+
+* SCD40/SCD41.
+* PAR/PPFD.
+* pH.
+* EC.
+* anemómetro.
+* pluviómetro.
+
+## Expansión
+
+* MCP23017.
+* Borneras.
+* Optoacopladores.
+* MOSFET.
+* Diodos flyback.
+* SSR.
+* Relés.
+* Contactores.
+
+## Actuadores
+
+* Bombas.
+* Electroválvulas.
+* Ventiladores.
+* Extractores.
+* Iluminación.
+* Calefactor.
+* Humidificador.
+* Motores/actuadores lineales.
+* Sistema de sombreado.
+
+---
+
+# 91. Selección por relación precio/prestaciones
+
+La estrategia será:
+
+### Económico
+
+```text
+ESP32
+SHT31/AHT20
+DS18B20
+capacitivo
+BH1750
+ADS1115
+MCP23017
+```
+
+### Intermedio
+
+Agregar:
+
+```text
+caudal
+nivel
+lluvia
+viento
+```
+
+### Avanzado
+
+Agregar:
+
+```text
+SCD40/SCD41
+PAR
+pH
+EC
+```
+
+Esto permite que el mismo proyecto se adapte a diferentes presupuestos.
+
+---
+
+# 92. Elementos que NO serán obligatorios
+
+El firmware no deberá exigir:
+
+```text
+CO₂
+pH
+EC
+PAR
+lluvia
+viento
+techo
+calefacción
+humidificador
+```
+
+Todos serán módulos opcionales.
+
+---
+
+# 93. Elementos que sí se consideran recomendados
+
+Para una instalación básica:
+
+```text
+ESP32
+SHT31
+DS18B20
+humedad de suelo
+nivel de tanque
+caudal
+bomba
+válvula
+ventilación
+```
+
+Con esto ya se puede construir un sistema agrícola funcional.
+
+---
+
+# 94. Instalación exterior recomendada
+
+Configuración:
+
+```text
+ESP32
+│
+├── SHT31 interior
+├── SHT31 exterior
+├── DS18B20 agua
+├── DS18B20 suelo
+├── 4 × humedad suelo
+├── BH1750
+├── lluvia
+├── viento
+├── nivel
+├── caudal
+│
+├── bomba
+├── 4 válvulas
+├── 2 ventiladores
+├── extractor
+├── techo
+└── sombreado
+```
+
+---
+
+# 95. Instalación interior recomendada
+
+```text
+ESP32
+│
+├── SHT31
+├── DS18B20
+├── 4 × humedad suelo
+├── BH1750
+├── nivel
+├── caudal
+│
+├── bomba
+├── 4 válvulas
+├── ventiladores
+├── extractor
+├── iluminación
+├── calefacción
+└── humidificador
+```
+
+---
+
+# 96. Instalación avanzada
+
+```text
+ESP32
+│
+├── SHT31
+├── DS18B20
+├── suelo
+├── CO₂
+├── PAR
+├── pH
+├── EC
+├── temperatura exterior
+├── humedad exterior
+├── lluvia
+├── viento
+├── nivel
+└── caudal
+
+ACTUADORES
+
+├── bomba
+├── válvulas
+├── ventiladores
+├── extractores
+├── calefacción
+├── humidificador
+├── luces
+├── CO₂
+├── techo
+├── ventanas
+└── sombreado
+```
+
+---
+
+# 97. Filosofía de funcionamiento
+
+El usuario no debería tener que pensar:
+
+```text
+¿Qué GPIO uso?
+¿Qué librería necesito?
+¿Cómo activo el sensor?
+¿Qué código tengo que modificar?
+```
+
+Debe pensar:
+
+```text
+Tengo un sensor SHT31.
+
+→ Lo conecto.
+
+→ Entro a Configuración.
+
+→ Sensores.
+
+→ Agregar sensor.
+
+→ SHT31.
+
+→ Habilitar.
+
+→ Guardar.
+```
+
+Y para un actuador:
+
+```text
+Tengo un ventilador.
+
+→ Lo conecto al canal correspondiente.
+
+→ Configuración.
+
+→ Actuadores.
+
+→ Ventilador 1.
+
+→ Habilitar.
+
+→ Definir función.
+
+→ Guardar.
+```
+
+---
+
+# 98. Principio de escalabilidad
+
+El proyecto deberá poder comenzar con:
+
+```text
+ESP32
++
+SHT31
++
+DS18B20
++
+1 humedad suelo
++
+1 bomba
++
+1 ventilador
+```
+
+y posteriormente crecer hasta:
+
+```text
+ESP32
++
+varios expansores
++
+varias zonas
++
+CO₂
++
+pH
++
+EC
++
+iluminación
++
+techo
++
+ventanas
++
+servidor central
+```
+
+sin cambiar la arquitectura principal.
+
+---
+
+# 99. Arquitectura final
+
+```text
+                         SERVIDOR CENTRAL
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+                  REST                  MQTT
+                    │                     │
+                    └──────────┬──────────┘
+                               │
+                        ┌──────▼──────┐
+                        │    ESP32    │
+                        │             │
+                        │ Web local   │
+                        │ REST API    │
+                        │ WebSocket   │
+                        │ MQTT        │
+                        │ OTA         │
+                        │ NVS         │
+                        │ Watchdog    │
+                        └──────┬──────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+             I²C BUS        1-WIRE          GPIO
+                │              │              │
+        ┌───────┼──────┐       │       ┌──────┼───────┐
+        │       │      │       │       │      │       │
+      SHT31  ADS1115 MCP23017 DS18B20 Flow  Level   Rain
+        │       │      │       │       │      │       │
+        └───────┴──────┴───────┴───────┴──────┴───────┘
+                               │
+                         DRIVERS
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+           BOMBAS           VÁLVULAS        VENTILACIÓN
+             │                 │                 │
+             └─────────────────┼─────────────────┘
+                               │
+                        INVERNADERO
+```
+
+# 100. Conclusión
+
+El proyecto deberá desarrollarse como una **plataforma de automatización modular**, no como un firmware específico para una única instalación.
+
+La elección de sensores se realizará priorizando:
+
+1. disponibilidad;
+2. precio;
+3. precisión suficiente;
+4. facilidad de reemplazo;
+5. documentación;
+6. facilidad de integración;
+7. confiabilidad.
+
+Por este motivo, los sensores de alta gama como CO₂ NDIR, PAR, pH y EC serán módulos opcionales, mientras que el núcleo utilizará componentes de mejor relación precio/prestaciones como SHT31, DS18B20, sensores capacitivos, ADS1115, MCP23017 y BH1750. El SHT31, por ejemplo, proporciona una precisión de aproximadamente ±2 %RH y ±0,2 °C, mientras que el DS18B20 ofrece ±0,5 °C en su rango especificado.
+
+El resultado deberá ser un único sistema capaz de adaptarse mediante configuración web a:
+
+```text
+INVERNADERO INTERIOR
+       +
+INVERNADERO EXTERIOR
+       +
+VENTILACIÓN
+       +
+CALEFACCIÓN
+       +
+ILUMINACIÓN
+       +
+RIEGO
+       +
+TECHO AUTOMÁTICO
+       +
+VENTANAS
+       +
+SOMBREADO
+       +
+CO₂
+       +
+pH / EC
+```
+
+sin necesidad de modificar el código fuente.
+
+La configuración será almacenada en memoria no volátil y el sistema deberá conservar la capacidad de funcionar autónomamente aun cuando se pierda la comunicación con el servidor central.
+
+El ESP32 será, por tanto, el **controlador de campo autónomo**, mientras que el servidor central será la **capa de supervisión, configuración, históricos y administración de múltiples dispositivos**.
