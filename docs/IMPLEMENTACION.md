@@ -14,6 +14,19 @@ Requisitos: PlatformIO Core (probado con espressif32 / Arduino core 3.x).
 Nota: si el `pio` del PATH intenta descargar `tool-scons`, usar el core
 coincidente con el paquete cacheado (ej. `~/.platformio/penv/Scripts/pio.exe`).
 
+## Particiones de memoria
+
+Tabla de particiones explícita en `partitions/` (doble app OTA + SPIFFS + coredump):
+
+| Archivo | Flash | app0/app1 | SPIFFS |
+|---------|-------|-----------|--------|
+| `default.csv` | 4 MB | 1,25 MB c/u | 1,375 MB |
+| `default_8MB.csv` | 8 MB | 3,19 MB c/u | 1,5 MB |
+| `default_16MB.csv` | 16 MB | 6,25 MB c/u | 3,375 MB |
+
+Selección en `platformio.ini` vía `board_build.partitions`. Con 4 MB el firmware
+actual ocupa ~73 % de la partición de app; para más margen usar N8/N16.
+
 ## Estructura de módulos
 
 ```
@@ -85,6 +98,15 @@ GET  /api/v1/ota              GET  /api/v1/zones
 GET  /api/v1/diagnostics      POST /api/v1/reset
 POST /api/v1/config/rollback
 ```
+
+## Documentación (wiki)
+
+La documentación completa está publicada en el **wiki** del repositorio:
+https://github.com/AlessandroKlein/Invernadero/wiki
+
+Páginas: Arquitectura, Hardware y pines, Materiales, Sensores, Actuadores y
+salidas, Configuración, Variables modificables (JSON), API REST, MQTT/WebSocket,
+Identidad y estados, OTA y actualización, y Compilación y flasheo.
 
 ## Trabajo futuro (fuera del alcance de esta entrega)
 
