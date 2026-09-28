@@ -63,6 +63,21 @@ const char* updateChannelString(UpdateChannel c) {
   }
 }
 
+const char* flashModeString(uint8_t m) {
+  switch ((FlashMode_t)m) {
+    case FM_QIO:       return "QIO";
+    case FM_QOUT:      return "QOUT";
+    case FM_DIO:       return "DIO";
+    case FM_DOUT:      return "DOUT";
+    case FM_FAST_READ: return "FAST_READ";
+    case FM_SLOW_READ: return "SLOW_READ";
+#ifdef FM_OPI
+    case FM_OPI:       return "OPI";
+#endif
+    default:           return "UNKNOWN";
+  }
+}
+
 // --- Identidad del dispositivo ---
 
 DeviceState Device::state_ = DeviceState::BOOTING;
@@ -91,6 +106,34 @@ DeviceInfo Device::info(const SystemConfig& cfg) {
   d.configSchemaVersion = GH_CONFIG_SCHEMA_VERSION;
   d.protocolVersion = GH_PROTOCOL_VERSION;
   d.channel = cfg.updateChannel;
+  // --- Identificación del hardware (sección 206) ---
+  strncpy(d.chipModel, ESP.getChipModel(), sizeof(d.chipModel) - 1);
+  d.chipRevision = ESP.getChipRevision();
+  d.chipCores = ESP.getChipCores();
+  d.cpuFreqMHz = ESP.getCpuFreqMHz();
+  d.flashSize = ESP.getFlashChipSize();
+  d.flashSpeed = ESP.getFlashChipSpeed();
+  d.flashMode = (uint8_t)ESP.getFlashChipMode();
+  d.psramSize = ESP.getPsramSize();
+  uint64_t macBits = ESP.getEfuseMac();
+  snprintf(d.mac, sizeof(d.mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+           (uint8_t)(macBits >> 40), (uint8_t)(macBits >> 32), (uint8_t)(macBits >> 24),
+           (uint8_t)(macBits >> 16), (uint8_t)(macBits >> 8), (uint8_t)macBits);
+  float tc = temperatureRead();
+  d.chipTemperature = (tc > -50.0f && tc < 200.0f) ? tc : -1000.0f;
+#if CONFIG_IDF_TARGET_ESP32
+  strncpy(d.chipFamily, "ESP32", sizeof(d.chipFamily) - 1);
+#elif CONFIG_IDF_TARGET_ESP32S2
+  strncpy(d.chipFamily, "ESP32-S2", sizeof(d.chipFamily) - 1);
+#elif CONFIG_IDF_TARGET_ESP32S3
+  strncpy(d.chipFamily, "ESP32-S3", sizeof(d.chipFamily) - 1);
+#elif CONFIG_IDF_TARGET_ESP32C3
+  strncpy(d.chipFamily, "ESP32-C3", sizeof(d.chipFamily) - 1);
+#elif CONFIG_IDF_TARGET_ESP32C6
+  strncpy(d.chipFamily, "ESP32-C6", sizeof(d.chipFamily) - 1);
+#else
+  strncpy(d.chipFamily, "ESP32", sizeof(d.chipFamily) - 1);
+#endif
   // Capacidades soportadas por este firmware/hardware (sección 166).
   addCap(d, "WIFI");
   addCap(d, "I2C");
@@ -124,7 +167,7 @@ DeviceState Device::state() { return state_; }
 
 String Device::deviceJson(const SystemConfig& cfg) {
   DeviceInfo d = info(cfg);
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument doc(2048);
   doc["device_uid"] = d.deviceUid;
   doc["device_id"] = cfg.deviceId;
   doc["greenhouse_id"] = cfg.greenhouseId;
@@ -136,6 +179,18 @@ String Device::deviceJson(const SystemConfig& cfg) {
   doc["channel"] = updateChannelString(d.channel);
   doc["state"] = deviceStateString(state());
   doc["reset_cause"] = resetCauseString(resetCause());
+  JsonObject chip = doc.createNestedObject("chip");
+  chip["model"] = d.chipModel;
+  chip["family"] = d.chipFamily;
+  chip["revision"] = d.chipRevision;
+  chip["cores"] = d.chipCores;
+  chip["cpu_mhz"] = d.cpuFreqMHz;
+  chip["flash_mb"] = d.flashSize / 1048576;
+  chip["flash_speed_mhz"] = d.flashSpeed / 1000000;
+  chip["flash_mode"] = flashModeString(d.flashMode);
+  chip["psram_mb"] = d.psramSize / 1048576;
+  chip["mac"] = d.mac;
+  if (d.chipTemperature > -100.0f) chip["temperature"] = d.chipTemperature;
   String out;
   serializeJson(doc, out);
   return out;

@@ -116,6 +116,18 @@ struct DeviceInfo {
   UpdateChannel channel = UpdateChannel::STABLE;
   char capabilities[10][16] = {};             // Lista de capacidades (sección 166)
   uint8_t capabilityCount = 0;
+  // Identificación del hardware (sección 206).
+  char chipModel[24] = "";                    // Modelo del SoC ("ESP32-D0WDQ6", "ESP32-S3", ...)
+  char chipFamily[16] = "";                   // Familia ("ESP32", "ESP32-S3", ...)
+  uint8_t chipRevision = 0;                   // Revisión del silicio
+  uint8_t chipCores = 0;                      // Núcleos
+  uint32_t cpuFreqMHz = 0;                    // Frecuencia de CPU
+  uint32_t flashSize = 0;                     // Flash (bytes)
+  uint32_t flashSpeed = 0;                    // Velocidad de Flash (Hz)
+  uint8_t flashMode = 0;                      // Modo Flash (QIO/QOUT/DIO/DOUT/OPI...)
+  uint32_t psramSize = 0;                     // PSRAM (bytes)
+  float chipTemperature = -1000.0f;           // Temperatura interna (diagnóstico; -1000 = N/D)
+  char mac[18] = "";                          // MAC "AA:BB:CC:DD:EE:FF"
 };
 
 // Estadísticas del bus RS485/Modbus (sección 177).
