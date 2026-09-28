@@ -22,7 +22,7 @@
 
 - **Configuration Engine** + **Hardware Manager** + **Bus Manager** (SPI/I²C/UART/RS485/1-Wire).
 - **Sensor Registry / Actuator Registry** + catálogo ampliable de sensores/actuadores.
-- **Rule Engine** configurable + **Safety Engine** + variables calculadas (VPD, punto de rocío, …).
+- **Rule Engine** configurable + **Safety Engine** — el Rule Engine básico y las variables calculadas (VPD, punto de rocío) ya están; faltan: **variables definidas por el usuario**, persistencia de reglas en NVS y la **UI web** de reglas.
 - **Almacenamiento**: LittleFS + SD (por SPI) y estructura de archivos `/greenhouse/`.
 - **Red**: Ethernet **W5500** configurable + administrador de buses SPI (CS únicos).
 - **Expansión configurable**: 74HC165 (entradas), MCP23017/MCP23S17, **ADC Manager** (MCP3008/3208/ADS8688/ADS8332).
