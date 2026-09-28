@@ -103,6 +103,12 @@ ul.alarms li.critical{border-left-color:var(--danger)}
 .chip input{display:none}
 .card{max-width:340px;padding:28px;background:var(--panel);border-radius:10px;display:flex;flex-direction:column;gap:10px}
 .card h1{margin:0;font-size:1.4rem}
+input[type=text],input[type=email],input[type=password],input[type=number]{
+  width:100%;padding:10px;border-radius:6px;border:1px solid var(--panel2);
+  background:var(--bg);color:var(--text);font-family:inherit;font-size:.9rem;
+}
+input:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:auto}
 .card input{padding:10px;border-radius:6px;border:1px solid var(--panel2);background:var(--bg);color:var(--text);font-family:inherit}
 .error{color:var(--danger);font-size:.85rem}
 .lbl{color:var(--muted);font-size:.8rem;margin-top:8px}
