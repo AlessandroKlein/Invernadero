@@ -10,6 +10,7 @@
 #include <freertos/semphr.h>
 
 #include "core/Types.hpp"
+#include "control/CalculatedVariables.hpp"
 #include "sensors/TempHumSensor.hpp"
 #include "sensors/Ds18b20Sensor.hpp"
 #include "sensors/Ads1115Driver.hpp"
@@ -54,6 +55,9 @@ public:
   float windSpeed() const;      // km/h
   float ph() const;
   float ec() const;             // mS/cm
+  // Variables calculadas (sección 235).
+  float vpd() const;
+  float dewPoint() const;
   SensorStatus statusOf(uint8_t idx) const;
 
   // Acceso a drivers (para diagnóstico).

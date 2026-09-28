@@ -110,6 +110,10 @@ float SensorManager::windSpeed() const { return values_[S_WIND].value; }
 float SensorManager::ph() const { return values_[S_PH].value; }
 float SensorManager::ec() const { return values_[S_EC].value; }
 
+// Variables calculadas (sección 235): derivadas de temperatura + humedad.
+float SensorManager::vpd() const { return calc::vpd(temperature(), humidity()); }
+float SensorManager::dewPoint() const { return calc::dewPoint(temperature(), humidity()); }
+
 SensorStatus SensorManager::statusOf(uint8_t idx) const {
   if (idx >= MAX_SENSORS) return SensorStatus::UNKNOWN;
   return values_[idx].status;

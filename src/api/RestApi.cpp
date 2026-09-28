@@ -43,6 +43,9 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/config", HTTP_PUT, [this]() { handleConfigPut(); });
   server_.on("/api/v1/config/export", HTTP_GET, [this]() { handleConfigExport(); });
   server_.on("/api/v1/config/import", HTTP_POST, [this]() { handleConfigImport(); });
+  server_.on("/api/v1/automation", HTTP_GET, [this]() { handleAutomationGet(); });
+  server_.on("/api/v1/automation", HTTP_POST, [this]() { handleAutomationPost(); });
+  server_.on("/api/v1/automation", HTTP_DELETE, [this]() { handleAutomationDelete(); });
   server_.on("/api/v1/events", HTTP_GET, [this]() { handleEvents(); });
   server_.on("/api/v1/alarms", HTTP_GET, [this]() { handleAlarms(); });
   server_.on("/api/v1/actuators", HTTP_POST, [this]() { handleActuatorCommand(); });
@@ -360,6 +363,49 @@ void RestApi::handleConfigImport() {
   server_.send(200, "application/json", out);
 }
 
+void RestApi::handleAutomationGet() {
+  if (!rules_) { server_.send(404, "application/json", "{\"rules\":[]}"); return; }
+  server_.send(200, "application/json", rules_->toJson());
+}
+
+void RestApi::handleAutomationPost() {
+  // Crear/agregar una regla (sección 237). Las reglas viven en RAM (no persisten
+  // en NVS aún); se suman a los controladores fijos.
+  if (!rules_) { server_.send(503, "application/json", "{\"error\":\"rule engine no disponible\"}"); return; }
+  if (!server_.hasArg("plain")) { server_.send(400, "text/plain", "body requerido"); return; }
+  DynamicJsonDocument doc(1024);
+  if (deserializeJson(doc, server_.arg("plain"))) { server_.send(400, "text/plain", "JSON inválido"); return; }
+
+  AutomationRule r;
+  if (doc["name"].is<const char*>()) strncpy(r.name, doc["name"], sizeof(r.name) - 1);
+  r.enabled = doc["enabled"] | true;
+  RuleVariable var; RuleOp op;
+  if (!ruleVariableFromString(doc["variable"] | "temperature", var) ||
+      !ruleOpFromString(doc["op"] | "gt", op)) {
+    server_.send(400, "application/json", "{\"error\":\"variable/op inválidos\"}");
+    return;
+  }
+  r.variable = var;
+  r.op = op;
+  r.threshold = doc["threshold"] | 0.0f;
+  r.action = roleFromString(doc["action"] | "fan");
+  r.actionIndex = doc["action_index"] | 0;
+  r.zone = doc["zone"] | 0;
+  r.actionValue = doc["action_value"] | 100.0f;
+
+  if (!rules_->addRule(r)) {
+    server_.send(409, "application/json", "{\"error\":\"límite de reglas alcanzado\"}");
+    return;
+  }
+  server_.send(200, "application/json", "{\"ok\":true,\"count\":" + String(rules_->count()) + "}");
+}
+
+void RestApi::handleAutomationDelete() {
+  if (!rules_) { server_.send(404, "application/json", "{\"error\":\"rule engine no disponible\"}"); return; }
+  rules_->clear();
+  server_.send(200, "application/json", "{\"ok\":true,\"count\":0}");
+}
+
 String RestApi::buildStatusJson() {
   SystemConfig cfg = cfg_->get();
   DynamicJsonDocument doc(2048);
@@ -374,6 +420,8 @@ String RestApi::buildStatusJson() {
   doc["soil"] = sensors_->soilMoisture(0);
   doc["tank"] = sensors_->tankLevel();
   doc["light"] = sensors_->lightLux();
+  doc["vpd"] = sensors_->vpd();
+  doc["dewpoint"] = sensors_->dewPoint();
   doc["pump"] = actuators_->isOn(ActuatorRole::PUMP, 0);
   doc["fan"] = actuators_->isOn(ActuatorRole::FAN, 0);
   String out; serializeJson(doc, out);

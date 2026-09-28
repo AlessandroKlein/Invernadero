@@ -105,6 +105,29 @@ enum class ConfigSource : uint8_t { LOCAL = 0, CENTRAL = 1 };
 // Canal de actualización de firmware (sección 148).
 enum class UpdateChannel : uint8_t { STABLE = 0, BETA = 1, DEVELOPMENT = 2 };
 
+// Variable medible/calculable para el motor de reglas (secciones 121/235/237).
+enum class RuleVariable : uint8_t {
+  TEMPERATURE = 0, HUMIDITY = 1, SOIL = 2, LIGHT = 3, CO2 = 4,
+  TANK = 5, FLOW = 6, PH = 7, EC = 8, VPD = 9, DEWPOINT = 10,
+  EXTERIOR_TEMP = 11, EXTERIOR_HUM = 12, WIND_SPEED = 13, RAIN = 14
+};
+
+// Operador de comparación de una regla (sección 121/237).
+enum class RuleOp : uint8_t { GT = 0, LT = 1, GTE = 2, LTE = 3, EQ = 4 };
+
+// Regla de automatización configurable: SI variable OP umbral ENTONCES acción.
+struct AutomationRule {
+  char name[24] = "";                        // Nombre descriptivo
+  bool enabled = true;                       // Regla activa
+  RuleVariable variable = RuleVariable::TEMPERATURE; // Magnitud a evaluar
+  RuleOp op = RuleOp::GT;                    // Operador de comparación
+  float threshold = 0.0f;                    // Umbral
+  ActuatorRole action = ActuatorRole::FAN;   // Actuador objetivo
+  uint8_t actionIndex = 0;                   // Subíndice (nº de ventilador, válvula, …)
+  uint8_t zone = 0;                          // Zona (para humedad de suelo)
+  float actionValue = 100.0f;                // 0..100 (%) a aplicar
+};
+
 // Identidad y capacidades del dispositivo (secciones 118/129/166/179).
 struct DeviceInfo {
   char deviceUid[24] = "";                    // Identidad permanente (derivada de MAC)

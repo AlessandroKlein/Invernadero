@@ -23,6 +23,7 @@
 #include "control/LightingController.hpp"
 #include "control/RoofController.hpp"
 #include "control/SafetyController.hpp"
+#include "control/RuleEngine.hpp"
 
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
@@ -50,6 +51,7 @@ struct App {
   LightingController lighting;
   RoofController roof;
   SafetyController safety;
+  RuleEngine rules;
   NetworkManager network;
   MqttManager mqtt;
   RestApi api;
@@ -71,6 +73,7 @@ static void automationTask(void* arg) {
     app.irrigation.update(cfg);    // Riego
     app.lighting.update(cfg);      // Iluminación
     app.roof.update(cfg);          // Techo/ventanas
+    app.rules.update();            // Reglas configurables (se suman a los controladores)
     app.actuators.apply();         // Escribir salidas físicas
 
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -112,6 +115,7 @@ void setup() {
   app.lighting.begin(&app.sensors, &app.actuators);
   app.roof.begin(&app.sensors, &app.actuators);
   app.safety.begin(&app.sensors, &app.actuators, &app.history);
+  app.rules.begin(&app.sensors, &app.actuators, &app.history);
 
   // 6) Red, MQTT, API, WebSocket, OTA, Watchdog.
   app.network.begin(app.config.get());
@@ -119,6 +123,7 @@ void setup() {
   app.mqtt.begin(app.config.get());
   app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history,
                 &app.network, &app.mqtt);
+  app.api.setRuleEngine(&app.rules);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);

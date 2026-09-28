@@ -11,6 +11,7 @@
 #include "storage/History.hpp"
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
+#include "control/RuleEngine.hpp"
 
 namespace gh {
 
@@ -19,6 +20,7 @@ public:
   void begin(ConfigManager* cfg, SensorManager* s, ActuatorManager* a, History* h,
              NetworkManager* net = nullptr, MqttManager* mqtt = nullptr);
   void loop() { server_.handleClient(); }
+  void setRuleEngine(RuleEngine* r) { rules_ = r; }
 
 private:
   WebServer server_{80};
@@ -28,6 +30,7 @@ private:
   History* history_ = nullptr;
   NetworkManager* network_ = nullptr;
   MqttManager* mqtt_ = nullptr;
+  RuleEngine* rules_ = nullptr;
 
   void setupRoutes();
   void handleRoot();
@@ -47,6 +50,9 @@ private:
   void handleNetworkScan();
   void handleConfigExport();
   void handleConfigImport();
+  void handleAutomationGet();
+  void handleAutomationPost();
+  void handleAutomationDelete();
   void handleRs485();
   void handleRs485Scan();
   void handleModbus();
