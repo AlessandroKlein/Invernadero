@@ -4,6 +4,14 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.2.0] - 2026-09-28
+
+### Added
+- Identificación del hardware (SoC/flash/PSRAM/MAC/temperatura) en `/api/v1/device` (§206).
+- Escaneo WiFi (`POST /api/v1/network/scan`): SSID, RSSI, canal y seguridad (§107).
+- Access Point con SSID identificable derivado de la MAC (`INVERNADERO-XXXXXX`) (§253).
+- Export/import de configuración (`GET /api/v1/config/export`, `POST /api/v1/config/import`) con `schema_version` (§15/221/257-260).
+
 ## [3.1.1] - 2026-09-28
 
 ### Changed
