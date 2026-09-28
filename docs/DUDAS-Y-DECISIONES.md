@@ -23,14 +23,13 @@
 - **Configuration Engine** + **Hardware Manager** + **Bus Manager** (SPI/I²C/UART/RS485/1-Wire).
 - **Sensor Registry / Actuator Registry** + catálogo ampliable de sensores/actuadores.
 - **Rule Engine** configurable + **Safety Engine** + variables calculadas (VPD, punto de rocío, …).
-- **Device Information**: detección de SoC/Flash/PSRAM/revisión (chip id, efuse).
 - **Almacenamiento**: LittleFS + SD (por SPI) y estructura de archivos `/greenhouse/`.
 - **Red**: Ethernet **W5500** configurable + administrador de buses SPI (CS únicos).
 - **Expansión configurable**: 74HC165 (entradas), MCP23017/MCP23S17, **ADC Manager** (MCP3008/3208/ADS8688/ADS8332).
-- **Import/export** de configuración + clonado + plantillas + **versionado con migraciones** (`schema_version`).
+- **Import/export avanzado**: clonado, plantillas y **migraciones** (`schema_version`) — el export/import básico ya está (`/api/v1/config/export|import`).
 - **Multi-board**: ESP32-S2/S3/C3/C5/C6 + particiones dinámicas + `#if CONFIG_IDF_TARGET_*`.
 - **OTA**: manifest por plataforma (targets) + validación SHA-256 + health check/rollback.
-- **Web local**: escaneo WiFi, AP `INVERNADERO-XXXXXX`, autenticación local + hardware avanzado protegido (ADMIN + PIN/botón).
+- **Web local**: autenticación local + hardware avanzado protegido (ADMIN + PIN/botón) — escaneo WiFi y AP por MAC ya implementados.
 
 ---
 
