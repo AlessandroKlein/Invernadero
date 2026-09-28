@@ -45,6 +45,8 @@ private:
   void handleCapabilities();
   void handleNetwork();
   void handleNetworkScan();
+  void handleConfigExport();
+  void handleConfigImport();
   void handleRs485();
   void handleRs485Scan();
   void handleModbus();

@@ -41,6 +41,8 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/actuators", HTTP_GET, [this]() { handleActuators(); });
   server_.on("/api/v1/config", HTTP_GET, [this]() { handleConfigGet(); });
   server_.on("/api/v1/config", HTTP_PUT, [this]() { handleConfigPut(); });
+  server_.on("/api/v1/config/export", HTTP_GET, [this]() { handleConfigExport(); });
+  server_.on("/api/v1/config/import", HTTP_POST, [this]() { handleConfigImport(); });
   server_.on("/api/v1/events", HTTP_GET, [this]() { handleEvents(); });
   server_.on("/api/v1/alarms", HTTP_GET, [this]() { handleAlarms(); });
   server_.on("/api/v1/actuators", HTTP_POST, [this]() { handleActuatorCommand(); });
@@ -312,6 +314,49 @@ void RestApi::handleNetworkScan() {
   doc["count"] = n;
   String out; serializeJson(doc, out);
   WiFi.scanDelete();
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleConfigExport() {
+  // Exportar configuración completa (§258) con schema_version (§221).
+  SystemConfig c = cfg_->get();
+  DynamicJsonDocument cfgDoc(8192);
+  deserializeJson(cfgDoc, ConfigManager::toJson(c));
+  DynamicJsonDocument outDoc(12288);
+  outDoc["schema_version"] = GH_CONFIG_SCHEMA_VERSION;
+  outDoc["config_version"] = c.configVersion;
+  outDoc["config"] = cfgDoc.as<JsonObject>();
+  String out; serializeJson(outDoc, out);
+  server_.sendHeader("Content-Disposition", "attachment; filename=\"invernadero-config.json\"");
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleConfigImport() {
+  // Importar configuración (§257): valida, aplica y persiste (mantiene previo para rollback).
+  if (!server_.hasArg("plain")) { server_.send(400, "text/plain", "body requerido"); return; }
+  DynamicJsonDocument doc(12288);
+  if (deserializeJson(doc, server_.arg("plain"))) {
+    server_.send(400, "application/json", "{\"error\":\"JSON inválido\"}");
+    return;
+  }
+  // Acepta un export completo ({config:{...}}) o la configuración cruda.
+  String cfgJson;
+  if (doc["config"].is<JsonObject>()) {
+    serializeJson(doc["config"], cfgJson);
+  } else {
+    cfgJson = server_.arg("plain");
+  }
+  SystemConfig c;
+  if (!ConfigManager::fromJson(cfgJson, c)) {
+    server_.send(400, "application/json", "{\"error\":\"Configuración inválida\"}");
+    return;
+  }
+  cfg_->set(c); // versiona y persiste (rollback previo)
+  SystemConfig applied = cfg_->get();
+  DynamicJsonDocument r(128);
+  r["ok"] = true;
+  r["config_version"] = applied.configVersion;
+  String out; serializeJson(r, out);
   server_.send(200, "application/json", out);
 }
 
