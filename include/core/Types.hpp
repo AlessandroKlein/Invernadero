@@ -9,11 +9,14 @@ namespace gh {
 // Estado de un sensor/lectura. Nunca se asume que un valor es válido (sección 56).
 enum class SensorStatus : uint8_t {
   UNKNOWN = 0,      // Aún no leído
-  OK = 1,           // Lectura válida
+  OK = 1,           // Lectura válida (calidad GOOD)
   WARNING = 2,      // Lectura dudosa
   ERROR = 3,        // Lectura inválida (hardware presente pero falla)
   DISCONNECTED = 4, // Hardware no detectado
-  OUT_OF_RANGE = 5  // Valor fuera de los límites configurados
+  OUT_OF_RANGE = 5, // Valor fuera de los límites configurados
+  INVALID = 6,      // Valor imposible/no válido
+  TIMEOUT = 7,      // Sin respuesta en el tiempo esperado
+  CALIBRATION = 8   // Calibración pendiente/incompleta
 };
 
 // Tipos de sensor soportados por el firmware (hardware disponible).
@@ -84,6 +87,48 @@ enum class UserRole : uint8_t {
   VIEWER = 2
 };
 
+// Estado de funcionamiento del dispositivo (sección 175).
+enum class DeviceState : uint8_t {
+  BOOTING = 0, INITIALIZING = 1, SELF_TEST = 2, NETWORK = 3, SYNC = 4,
+  RUN = 5, DEGRADED = 6, ERROR = 7, MAINTENANCE = 8, UPDATING = 9, RECOVERY = 10
+};
+
+// Causa del último reinicio (sección 150).
+enum class ResetCause : uint8_t {
+  POWER_ON = 0, SOFTWARE_RESET = 1, WATCHDOG = 2, BROWNOUT = 3,
+  PANIC = 4, OTA = 5, FACTORY_RESET = 6, UNKNOWN = 7
+};
+
+// Fuente propietaria de la configuración (sección 103).
+enum class ConfigSource : uint8_t { LOCAL = 0, CENTRAL = 1 };
+
+// Canal de actualización de firmware (sección 148).
+enum class UpdateChannel : uint8_t { STABLE = 0, BETA = 1, DEVELOPMENT = 2 };
+
+// Identidad y capacidades del dispositivo (secciones 118/129/166/179).
+struct DeviceInfo {
+  char deviceUid[24] = "";                    // Identidad permanente (derivada de MAC)
+  char hardwareProfile[24] = "ESP32-GH-V1";   // Perfil de hardware
+  char firmwareVersion[12] = "3.0.0";         // Versión de firmware
+  char hardwareVersion[12] = "rev0";          // Revisión de hardware
+  uint16_t configSchemaVersion = 1;           // Esquema de configuración
+  uint16_t protocolVersion = 1;               // Versión de protocolo
+  UpdateChannel channel = UpdateChannel::STABLE;
+  char capabilities[10][16] = {};             // Lista de capacidades (sección 166)
+  uint8_t capabilityCount = 0;
+};
+
+// Estadísticas del bus RS485/Modbus (sección 177).
+struct ModbusStats {
+  uint32_t txCount = 0;
+  uint32_t rxCount = 0;
+  uint32_t crcErrors = 0;
+  uint32_t timeouts = 0;
+  uint32_t retries = 0;
+  uint8_t lastError = 0;
+  uint8_t devicesFound = 0;
+};
+
 // Estructura de configuración de un sensor (sección 38).
 struct SensorConfig {
   bool enabled = false;              // Habilitado
@@ -123,6 +168,11 @@ struct SystemConfig {
   char deviceId[16] = "GH001";
   char deviceName[32] = "Invernadero";
   GreenhouseType type = GreenhouseType::OUTDOOR;
+  char greenhouseId[24] = "GREENHOUSE-001";          // Identificación del invernadero (sección 102)
+  uint32_t configVersion = 1;                        // Versión de configuración (sección 104)
+  ConfigSource configSource = ConfigSource::LOCAL;   // Propietario de la config (sección 103)
+  bool simulation = false;                           // Modo simulación sin hardware (sección 191)
+  UpdateChannel updateChannel = UpdateChannel::STABLE; // Canal OTA (sección 148)
 
   // Funciones habilitadas (sección 62).
   bool featureClimate = true;
@@ -195,6 +245,20 @@ struct SystemConfig {
   char mqttPass[64] = "";
   char ntpServer[48] = "pool.ntp.org";
   int8_t timezoneOffset = -3;        // ARG
+  char timezone[48] = "America/Argentina/Buenos_Aires"; // IANA (sección 125)
+  char dnsPrimary[16] = "8.8.8.8";   // DNS (sección 126)
+  char dnsSecondary[16] = "1.1.1.1";
+
+  // Servidor central (sección 128).
+  bool managedByCentral = false;
+  char centralUrl[64] = "";
+  uint16_t centralPort = 443;
+  char centralToken[64] = "";
+
+  // RS485 / Modbus (sección 113).
+  uint32_t rs485Baud = 9600;
+  uint8_t rs485Parity = 0;     // 0=NONE, 1=EVEN, 2=ODD
+  uint8_t rs485StopBits = 1;
 
   // Sensores habilitados.
   bool sensorSht31 = true;
@@ -221,6 +285,10 @@ struct SystemConfig {
   bool actRoof = false;
   bool actWindow = false;
   bool actShade = false;
+
+  // Zonas (sección 120).
+  uint8_t zoneCount = 4;
+  char zoneNames[8][16] = {"Zona 1", "Zona 2", "Zona 3", "Zona 4", "", "", "", ""};
 };
 
 // Lectura de un sensor en tiempo de ejecución.
@@ -257,6 +325,12 @@ struct LogEvent {
   uint8_t severity = 0;     // 0 info, 1 warning, 2 error, 3 alarma
   char message[96] = "";
 };
+
+// Conversiones a cadena para API/diagnóstico (secciones 150/175/176).
+const char* sensorStatusString(SensorStatus s);
+const char* deviceStateString(DeviceState s);
+const char* resetCauseString(ResetCause s);
+const char* updateChannelString(UpdateChannel c);
 
 } // namespace gh
 

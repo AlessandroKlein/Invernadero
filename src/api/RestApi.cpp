@@ -1,7 +1,12 @@
 #include "api/RestApi.hpp"
 
 #include <ArduinoJson.h>
+#include <WiFi.h>
+
 #include "web/WebAssets.hpp"
+#include "system/Device.hpp"
+#include "system/Diagnostics.hpp"
+#include "core/Version.hpp"
 
 namespace gh {
 
@@ -21,8 +26,10 @@ static ActuatorRole roleFromString(const String& s) {
   return ActuatorRole::GENERIC;
 }
 
-void RestApi::begin(ConfigManager* cfg, SensorManager* s, ActuatorManager* a, History* h) {
+void RestApi::begin(ConfigManager* cfg, SensorManager* s, ActuatorManager* a, History* h,
+                    NetworkManager* net, MqttManager* mqtt) {
   cfg_ = cfg; sensors_ = s; actuators_ = a; history_ = h;
+  network_ = net; mqtt_ = mqtt;
   setupRoutes();
   server_.begin();
 }
@@ -38,6 +45,21 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/alarms", HTTP_GET, [this]() { handleAlarms(); });
   server_.on("/api/v1/actuators", HTTP_POST, [this]() { handleActuatorCommand(); });
   server_.on("/api/v1/factory-reset", HTTP_POST, [this]() { handleFactoryReset(); });
+
+  // Ampliación de la API (sección 181): identidad, capacidades, red, RS485, etc.
+  server_.on("/api/v1/device", HTTP_GET, [this]() { handleDevice(); });
+  server_.on("/api/v1/capabilities", HTTP_GET, [this]() { handleCapabilities(); });
+  server_.on("/api/v1/config/schema", HTTP_GET, [this]() { handleConfigSchema(); });
+  server_.on("/api/v1/network", HTTP_GET, [this]() { handleNetwork(); });
+  server_.on("/api/v1/rs485", HTTP_GET, [this]() { handleRs485(); });
+  server_.on("/api/v1/rs485/scan", HTTP_POST, [this]() { handleRs485Scan(); });
+  server_.on("/api/v1/modbus", HTTP_GET, [this]() { handleModbus(); });
+  server_.on("/api/v1/firmware", HTTP_GET, [this]() { handleFirmware(); });
+  server_.on("/api/v1/ota", HTTP_GET, [this]() { handleOta(); });
+  server_.on("/api/v1/zones", HTTP_GET, [this]() { handleZones(); });
+  server_.on("/api/v1/diagnostics", HTTP_GET, [this]() { handleDiagnostics(); });
+  server_.on("/api/v1/reset", HTTP_POST, [this]() { handleReset(); });
+  server_.on("/api/v1/config/rollback", HTTP_POST, [this]() { handleRollback(); });
 }
 
 void RestApi::handleRoot() {
@@ -115,12 +137,173 @@ void RestApi::handleFactoryReset() {
   server_.send(200, "application/json", "{\"ok\":true}");
 }
 
+void RestApi::handleDevice() {
+  server_.send(200, "application/json", Device::deviceJson(cfg_->get()));
+}
+
+void RestApi::handleCapabilities() {
+  server_.send(200, "application/json", Device::capabilitiesJson(cfg_->get()));
+}
+
+void RestApi::handleConfigSchema() {
+  // Esquema descriptivo mínimo de la configuración (sección 181).
+  server_.send(200, "application/json",
+    "{\"type\":\"object\",\"properties\":{"
+    "\"device\":{\"type\":\"object\"},\"features\":{\"type\":\"object\"},"
+    "\"climate\":{\"type\":\"object\"},\"irrigation\":{\"type\":\"object\"},"
+    "\"ventilation\":{\"type\":\"object\"},\"roof\":{\"type\":\"object\"},"
+    "\"lighting\":{\"type\":\"object\"},\"calibration\":{\"type\":\"object\"},"
+    "\"network\":{\"type\":\"object\"},\"sensors\":{\"type\":\"object\"},"
+    "\"actuators\":{\"type\":\"object\"},\"zones\":{\"type\":\"array\"},"
+    "\"config_version\":{\"type\":\"integer\"},"
+    "\"configuration_source\":{\"type\":\"string\"},"
+    "\"simulation\":{\"type\":\"boolean\"},"
+    "\"update_channel\":{\"type\":\"string\"}}}");
+}
+
+void RestApi::handleNetwork() {
+  SystemConfig c = cfg_->get();
+  DynamicJsonDocument doc(1024);
+  doc["ssid"] = c.wifiSsid;
+  doc["hostname"] = c.hostname;
+  doc["ip"] = network_ ? network_->ip() : WiFi.localIP().toString();
+  doc["mac"] = WiFi.macAddress();
+  doc["rssi"] = WiFi.RSSI();
+  doc["ap_mode"] = network_ ? network_->isApMode() : false;
+  doc["mqtt_host"] = c.mqttHost;
+  doc["mqtt_port"] = c.mqttPort;
+  doc["ntp"] = c.ntpServer;
+  doc["timezone"] = c.timezone;
+  doc["dns1"] = c.dnsPrimary;
+  doc["dns2"] = c.dnsSecondary;
+  doc["managed_by_central"] = c.managedByCentral;
+  doc["central_url"] = c.centralUrl;
+  doc["rs485_baud"] = c.rs485Baud;
+  doc["rs485_parity"] = c.rs485Parity;
+  doc["rs485_stop"] = c.rs485StopBits;
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleRs485() {
+  SystemConfig c = cfg_->get();
+  ModbusStats s = sensors_->modbusStats();
+  DynamicJsonDocument doc(512);
+  doc["baud"] = c.rs485Baud;
+  doc["parity"] = c.rs485Parity;
+  doc["stop_bits"] = c.rs485StopBits;
+  doc["tx"] = s.txCount;
+  doc["rx"] = s.rxCount;
+  doc["crc_errors"] = s.crcErrors;
+  doc["timeouts"] = s.timeouts;
+  doc["devices_found"] = s.devicesFound;
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleRs485Scan() {
+  // Descubrimiento de dispositivos en el bus (sección 115).
+  uint8_t found[64];
+  uint8_t n = sensors_->scanModbus(found, 64);
+  DynamicJsonDocument doc(512);
+  JsonArray arr = doc.to<JsonArray>();
+  for (uint8_t i = 0; i < n; i++) arr.add(found[i]);
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleModbus() {
+  // Herramienta Modbus de mantenimiento (sección 178).
+  if (!server_.hasArg("slave") || !server_.hasArg("reg")) {
+    server_.send(400, "text/plain", "faltan slave/reg");
+    return;
+  }
+  uint8_t slave = server_.arg("slave").toInt();
+  uint16_t reg = server_.arg("reg").toInt();
+  uint16_t qty = server_.hasArg("qty") ? server_.arg("qty").toInt() : 1;
+  uint8_t func = server_.hasArg("func") ? server_.arg("func").toInt() : 3;
+  if (qty == 0 || qty > 10) qty = 1;
+  uint16_t vals[10];
+  bool ok = (func == 4) ? sensors_->modbusReadInput(slave, reg, qty, vals)
+                        : sensors_->modbusReadHolding(slave, reg, qty, vals);
+  DynamicJsonDocument doc(512);
+  doc["ok"] = ok;
+  JsonArray arr = doc.createNestedArray("registers");
+  for (uint16_t i = 0; i < (ok ? qty : 0); i++) {
+    JsonObject r = arr.createNestedObject();
+    r["addr"] = reg + i;
+    r["value"] = vals[i];
+  }
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleFirmware() {
+  SystemConfig c = cfg_->get();
+  DynamicJsonDocument doc(512);
+  doc["project"] = "Invernadero";
+  doc["version"] = GH_FW_VERSION;
+  doc["channel"] = updateChannelString(c.updateChannel);
+  doc["hardware_profile"] = GH_HW_PROFILE;
+  doc["config_schema"] = GH_CONFIG_SCHEMA_VERSION;
+  doc["protocol"] = GH_PROTOCOL_VERSION;
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleOta() {
+  SystemConfig c = cfg_->get();
+  DynamicJsonDocument doc(256);
+  doc["ota_enabled"] = true;
+  doc["channel"] = updateChannelString(c.updateChannel);
+  doc["version"] = GH_FW_VERSION;
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleZones() {
+  SystemConfig c = cfg_->get();
+  DynamicJsonDocument doc(512);
+  JsonArray arr = doc.to<JsonArray>();
+  for (uint8_t i = 0; i < c.zoneCount && i < 8; i++) arr.add(c.zoneNames[i]);
+  String out; serializeJson(doc, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleDiagnostics() {
+  bool wifiOk = network_ ? network_->connected() : (WiFi.status() == WL_CONNECTED);
+  String ip = network_ ? network_->ip() : WiFi.localIP().toString();
+  server_.send(200, "application/json",
+    Diagnostics::build(sensors_, mqtt_, wifiOk, ip.c_str(), GH_FW_VERSION, GH_HW_VERSION));
+}
+
+void RestApi::handleReset() {
+  // Niveles de reset (sección 155): network | automation | factory.
+  if (!server_.hasArg("plain")) { server_.send(400, "text/plain", "body requerido"); return; }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) { server_.send(400, "text/plain", "JSON inválido"); return; }
+  String level = doc["level"] | "factory";
+  if (level == "network") cfg_->resetNetwork();
+  else if (level == "automation") cfg_->resetAutomation();
+  else cfg_->factoryReset();
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+
+void RestApi::handleRollback() {
+  // Rollback de configuración (sección 104).
+  cfg_->rollback();
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+
 String RestApi::buildStatusJson() {
   SystemConfig cfg = cfg_->get();
   DynamicJsonDocument doc(2048);
   doc["id"] = cfg.deviceId;
   doc["name"] = cfg.deviceName;
   doc["mode"] = "AUTO";
+  doc["state"] = deviceStateString(Device::state());
+  doc["config_version"] = cfg.configVersion;
+  doc["simulation"] = cfg.simulation;
   doc["temperature"] = sensors_->temperature();
   doc["humidity"] = sensors_->humidity();
   doc["soil"] = sensors_->soilMoisture(0);

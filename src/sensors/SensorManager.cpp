@@ -1,6 +1,7 @@
 #include "sensors/SensorManager.hpp"
 
 #include <ArduinoJson.h>
+#include <math.h>
 #include "core/PinMap.hpp"
 
 namespace gh {
@@ -123,6 +124,26 @@ static float soilToPercent(float raw, float wetRaw, float dryRaw) {
 
 void SensorManager::update() {
   uint32_t now = millis();
+
+  // --- Modo simulación (sección 191): genera datos sintéticos sin hardware. ---
+  if (cfg_.simulation) {
+    float t = now / 1000.0f;
+    setValue(S_TEMP, SensorType::TEMP_SHT31, "Temperatura", 0, true,
+             23.0f + 3.0f * sinf(t / 45.0f), 0, SensorStatus::OK, "°C");
+    setValue(S_HUM, SensorType::HUM_SHT31, "Humedad", 0, true,
+             65.0f + 10.0f * sinf(t / 60.0f), 0, SensorStatus::OK, "%");
+    for (uint8_t z = 0; z < MAX_SOIL_ZONES; z++)
+      setValue(S_SOIL + z, SensorType::SOIL_MOISTURE, "Suelo", z + 1, true,
+               50.0f + 10.0f * sinf(t / 30.0f + z), 0, SensorStatus::OK, "%");
+    float day = (sinf(t / 120.0f) + 1.0f) / 2.0f; // ciclo día/noche simulado
+    setValue(S_LIGHT, SensorType::LIGHT_LUX, "Luz", 0, true, day * 30000.0f, 0, SensorStatus::OK, "lux");
+    setValue(S_CO2, SensorType::CO2, "CO₂", 0, true, 500.0f + 200.0f * sinf(t / 50.0f), 0, SensorStatus::OK, "ppm");
+    setValue(S_TANK, SensorType::TANK_LEVEL, "Tanque", 0, true, 72.0f, 0, SensorStatus::OK, "%");
+    setValue(S_FLOW, SensorType::FLOW_RATE, "Caudal", 0, true, 0.0f, 0, SensorStatus::OK, "L/min");
+    setValue(S_PH, SensorType::PH, "pH", 0, true, 6.5f + 0.3f * sinf(t / 40.0f), 0, SensorStatus::OK, "");
+    setValue(S_EC, SensorType::EC, "EC", 0, true, 1.8f, 0, SensorStatus::OK, "mS/cm");
+    return;
+  }
 
   // --- Temperatura/Humedad interior (SHT31) ---
   if (cfg_.sensorSht31) {
@@ -285,6 +306,7 @@ String SensorManager::toJson() const {
     o["zone"] = values_[i].zone;
     o["value"] = values_[i].value;
     o["status"] = (int)values_[i].status;
+    o["quality"] = sensorStatusString(values_[i].status); // sección 176
     o["unit"] = values_[i].unit;
   }
   String out;

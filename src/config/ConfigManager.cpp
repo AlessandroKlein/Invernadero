@@ -11,6 +11,12 @@ void ConfigManager::begin() {
   // Abrir el espacio de nombres NVS y cargar el JSON guardado.
   prefs_.begin(NVS_NS, false);
   String json = prefs_.getString(NVS_KEY, "");
+  String prev = prefs_.getString(NVS_KEY_PREV, "");
+  // Cargar la configuración anterior (rollback, sección 104) si existe.
+  if (prev.length() > 0) {
+    SystemConfig p;
+    if (fromJson(prev, p)) prev_ = p;
+  }
   if (json.length() > 0) {
     SystemConfig parsed;
     if (fromJson(json, parsed)) {
@@ -33,25 +39,115 @@ SystemConfig ConfigManager::get() const {
 
 void ConfigManager::set(const SystemConfig& c) {
   if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  prev_ = cfg_;           // Guardar la actual como anterior (rollback, sección 104)
   cfg_ = c;
+  cfg_.configVersion++;   // Versionar la nueva configuración
   if (mutex_) xSemaphoreGive(mutex_);
   save();
 }
 
 void ConfigManager::save() {
-  String json = toJson(cfg_);
-  prefs_.putString(NVS_KEY, json);
+  // Persistir tanto la configuración actual como la anterior (rollback).
+  prefs_.putString(NVS_KEY, toJson(cfg_));
+  prefs_.putString(NVS_KEY_PREV, toJson(prev_));
 }
 
 void ConfigManager::factoryReset() {
-  set(defaults());
+  // FACTORY RESET: restaura todo y descarta el rollback (sección 155).
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  cfg_ = defaults();
+  prev_ = cfg_;
+  if (mutex_) xSemaphoreGive(mutex_);
+  save();
+}
+
+void ConfigManager::resetNetwork() {
+  // RESET NETWORK: solo parámetros de red/servidor/RS485 (sección 155).
+  SystemConfig c = get();
+  SystemConfig d = defaults();
+  strcpy(c.wifiSsid, d.wifiSsid);
+  strcpy(c.wifiPass, d.wifiPass);
+  strcpy(c.hostname, d.hostname);
+  strcpy(c.apSsid, d.apSsid);
+  strcpy(c.apPass, d.apPass);
+  strcpy(c.mqttHost, d.mqttHost);
+  c.mqttPort = d.mqttPort;
+  strcpy(c.mqttUser, d.mqttUser);
+  strcpy(c.mqttPass, d.mqttPass);
+  strcpy(c.ntpServer, d.ntpServer);
+  c.timezoneOffset = d.timezoneOffset;
+  strcpy(c.timezone, d.timezone);
+  strcpy(c.dnsPrimary, d.dnsPrimary);
+  strcpy(c.dnsSecondary, d.dnsSecondary);
+  c.managedByCentral = false;
+  strcpy(c.centralUrl, d.centralUrl);
+  c.centralPort = d.centralPort;
+  strcpy(c.centralToken, d.centralToken);
+  c.rs485Baud = d.rs485Baud;
+  c.rs485Parity = d.rs485Parity;
+  c.rs485StopBits = d.rs485StopBits;
+  set(c);
+}
+
+void ConfigManager::resetAutomation() {
+  // RESET AUTOMATION: solo funciones y parámetros de control (sección 155).
+  SystemConfig c = get();
+  SystemConfig d = defaults();
+  c.featureClimate = d.featureClimate;
+  c.featureIrrigation = d.featureIrrigation;
+  c.featureLighting = d.featureLighting;
+  c.featureCo2 = d.featureCo2;
+  c.featureHeating = d.featureHeating;
+  c.featureHumidification = d.featureHumidification;
+  c.featureRoof = d.featureRoof;
+  c.featureWindows = d.featureWindows;
+  c.featureShade = d.featureShade;
+  c.tempMin = d.tempMin; c.tempTarget = d.tempTarget; c.tempMax = d.tempMax;
+  c.tempEmergency = d.tempEmergency; c.tempHysteresis = d.tempHysteresis;
+  c.humMin = d.humMin; c.humTarget = d.humTarget; c.humMax = d.humMax;
+  c.humHysteresis = d.humHysteresis;
+  c.soilMin = d.soilMin; c.soilTarget = d.soilTarget;
+  c.irrigationMaxTimeMs = d.irrigationMaxTimeMs; c.flowMin = d.flowMin;
+  c.flowCheckDelayMs = d.flowCheckDelayMs;
+  c.ventOnTemp = d.ventOnTemp; c.ventOffTemp = d.ventOffTemp; c.ventHumMax = d.ventHumMax;
+  c.roofOpenTemp = d.roofOpenTemp; c.roofCloseTemp = d.roofCloseTemp;
+  c.roofCloseOnRain = d.roofCloseOnRain; c.roofCloseOnWind = d.roofCloseOnWind;
+  c.windMaxSpeed = d.windMaxSpeed;
+  c.lightMinLux = d.lightMinLux; c.lightStartHour = d.lightStartHour;
+  c.lightEndHour = d.lightEndHour; c.lightIntensity = d.lightIntensity;
+  c.sensorSht31 = d.sensorSht31; c.sensorDs18b20 = d.sensorDs18b20;
+  c.sensorSoil = d.sensorSoil; c.sensorLight = d.sensorLight;
+  c.sensorCo2 = d.sensorCo2; c.sensorRain = d.sensorRain; c.sensorWind = d.sensorWind;
+  c.sensorTank = d.sensorTank; c.sensorFlow = d.sensorFlow;
+  c.sensorPh = d.sensorPh; c.sensorEc = d.sensorEc; c.sensorExterior = d.sensorExterior;
+  c.actPump = d.actPump; c.actValves = d.actValves; c.actFans = d.actFans;
+  c.actExtractors = d.actExtractors; c.actLights = d.actLights;
+  c.actHeater = d.actHeater; c.actHumidifier = d.actHumidifier;
+  c.actRoof = d.actRoof; c.actWindow = d.actWindow; c.actShade = d.actShade;
+  set(c);
+}
+
+bool ConfigManager::rollback() {
+  // Intercambia la configuración actual con la anterior (sección 104).
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  SystemConfig tmp = cfg_;
+  cfg_ = prev_;
+  prev_ = tmp;
+  if (mutex_) xSemaphoreGive(mutex_);
+  save();
+  return true;
 }
 
 String ConfigManager::toJson(const SystemConfig& c) {
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(8192);
   doc["device"]["id"] = c.deviceId;
   doc["device"]["name"] = c.deviceName;
   doc["device"]["type"] = (int)c.type;
+  doc["device"]["greenhouse_id"] = c.greenhouseId;
+  doc["config_version"] = c.configVersion;
+  doc["configuration_source"] = (c.configSource == ConfigSource::CENTRAL) ? "CENTRAL" : "LOCAL";
+  doc["simulation"] = c.simulation;
+  doc["update_channel"] = updateChannelString(c.updateChannel);
 
   JsonObject f = doc.createNestedObject("features");
   f["climate"] = c.featureClimate;
@@ -124,6 +220,16 @@ String ConfigManager::toJson(const SystemConfig& c) {
   net["mqtt_pass"] = c.mqttPass;
   net["ntp"] = c.ntpServer;
   net["tz"] = c.timezoneOffset;
+  net["timezone"] = c.timezone;
+  net["dns1"] = c.dnsPrimary;
+  net["dns2"] = c.dnsSecondary;
+  net["central_managed"] = c.managedByCentral;
+  net["central_url"] = c.centralUrl;
+  net["central_port"] = c.centralPort;
+  net["central_token"] = c.centralToken;
+  net["rs485_baud"] = c.rs485Baud;
+  net["rs485_parity"] = c.rs485Parity;
+  net["rs485_stop"] = c.rs485StopBits;
 
   JsonObject s = doc.createNestedObject("sensors");
   s["sht31"] = c.sensorSht31;
@@ -151,13 +257,17 @@ String ConfigManager::toJson(const SystemConfig& c) {
   a["window"] = c.actWindow;
   a["shade"] = c.actShade;
 
+  // Zonas (sección 120).
+  JsonArray zones = doc.createNestedArray("zones");
+  for (uint8_t i = 0; i < c.zoneCount && i < 8; i++) zones.add(c.zoneNames[i]);
+
   String out;
   serializeJson(doc, out);
   return out;
 }
 
 bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(8192);
   DeserializationError err = deserializeJson(doc, json);
   if (err) return false;
 
@@ -170,6 +280,19 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     copyStr(doc["device"]["id"] | "GH001", out.deviceId, sizeof(out.deviceId));
     copyStr(doc["device"]["name"] | "Invernadero", out.deviceName, sizeof(out.deviceName));
     out.type = (GreenhouseType)(doc["device"]["type"] | 1);
+    copyStr(doc["device"]["greenhouse_id"] | "GREENHOUSE-001", out.greenhouseId, sizeof(out.greenhouseId));
+  }
+  out.configVersion = doc["config_version"] | out.configVersion;
+  if (doc["configuration_source"].is<const char*>()) {
+    out.configSource = (String(doc["configuration_source"] | "LOCAL") == "CENTRAL")
+                         ? ConfigSource::CENTRAL : ConfigSource::LOCAL;
+  }
+  out.simulation = doc["simulation"] | out.simulation;
+  if (doc["update_channel"].is<const char*>()) {
+    String ch = doc["update_channel"] | "stable";
+    if (ch == "beta") out.updateChannel = UpdateChannel::BETA;
+    else if (ch == "development") out.updateChannel = UpdateChannel::DEVELOPMENT;
+    else out.updateChannel = UpdateChannel::STABLE;
   }
   if (doc["features"].is<JsonObject>()) {
     JsonObject f = doc["features"];
@@ -255,6 +378,16 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     copyStr(n["mqtt_pass"], out.mqttPass, sizeof(out.mqttPass));
     copyStr(n["ntp"], out.ntpServer, sizeof(out.ntpServer));
     out.timezoneOffset = n["tz"] | out.timezoneOffset;
+    copyStr(n["timezone"], out.timezone, sizeof(out.timezone));
+    copyStr(n["dns1"], out.dnsPrimary, sizeof(out.dnsPrimary));
+    copyStr(n["dns2"], out.dnsSecondary, sizeof(out.dnsSecondary));
+    out.managedByCentral = n["central_managed"] | out.managedByCentral;
+    copyStr(n["central_url"], out.centralUrl, sizeof(out.centralUrl));
+    out.centralPort = n["central_port"] | out.centralPort;
+    copyStr(n["central_token"], out.centralToken, sizeof(out.centralToken));
+    out.rs485Baud = n["rs485_baud"] | out.rs485Baud;
+    out.rs485Parity = n["rs485_parity"] | out.rs485Parity;
+    out.rs485StopBits = n["rs485_stop"] | out.rs485StopBits;
   }
   if (doc["sensors"].is<JsonObject>()) {
     JsonObject s = doc["sensors"];
@@ -283,6 +416,15 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     out.actRoof = a["roof"] | out.actRoof;
     out.actWindow = a["window"] | out.actWindow;
     out.actShade = a["shade"] | out.actShade;
+  }
+  // Zonas (sección 120).
+  if (doc["zones"].is<JsonArray>()) {
+    JsonArray z = doc["zones"];
+    out.zoneCount = 0;
+    for (uint8_t i = 0; i < z.size() && i < 8; i++) {
+      copyStr(z[i] | "", out.zoneNames[i], sizeof(out.zoneNames[i]));
+      out.zoneCount++;
+    }
   }
   return true;
 }

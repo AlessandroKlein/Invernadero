@@ -3819,3 +3819,3698 @@ La combinación de **ESP32 + I²C + SPI + 1-Wire + ADC externo + RS485/Modbus + 
 La principal ventaja de esta arquitectura es que **la instalación no queda atada a un único tipo de sensor ni a una cantidad fija de entradas y salidas del ESP32**. El controlador constituye el núcleo del sistema y los sensores, actuadores y módulos de comunicación funcionan como componentes intercambiables.
 
 Esto también permite que una futura versión del proyecto incorpore sensores Modbus adicionales simplemente configurando su **dirección, registros y parámetros de comunicación desde la interfaz web**, sin modificar necesariamente el firmware principal.
+
+# 101. Evolución de la arquitectura del proyecto
+
+A partir de las funcionalidades implementadas en las versiones anteriores, el proyecto evolucionará desde un controlador de invernadero basado en ESP32 hacia una plataforma modular de automatización distribuida.
+
+La arquitectura deberá permitir que una instalación pequeña funcione únicamente con un ESP32, mientras que instalaciones grandes puedan utilizar múltiples nodos, buses RS485/Modbus, Ethernet, WiFi y uno o varios gateways conectados a un servidor central.
+
+La arquitectura propuesta será:
+
+```text
+                         SERVIDOR CENTRAL
+                                │
+                  ┌─────────────┴─────────────┐
+                  │                           │
+               HTTPS/API                    MQTT
+                  │                           │
+                  └─────────────┬─────────────┘
+                                │
+                         RED IP / LAN / WAN
+                                │
+              ┌─────────────────┼─────────────────┐
+              │                 │                 │
+          GATEWAY A         GATEWAY B         ESP32 DIRECTO
+       Ethernet / WiFi    Ethernet / WiFi          │
+              │                 │                   │
+           RS485             RS485               Sensores
+              │                 │                Actuadores
+       ┌──────┼──────┐      ┌───┼────┐
+       │      │      │      │   │    │
+      pH     EC    ORP     Temp CO₂ Caudal
+      │       │      │      │   │    │
+      └───────┴──────┴──────┴───┴────┘
+                    BUS INDUSTRIAL
+```
+
+El sistema deberá conservar siempre la siguiente propiedad fundamental:
+
+```text
+SERVIDOR CENTRAL = supervisión, administración y coordinación
+
+ESP32 / NODO DE CAMPO = control autónomo y seguridad
+```
+
+La pérdida de comunicación con el servidor nunca deberá provocar la pérdida del control básico del invernadero.
+
+---
+
+# 102. Principio de autonomía local
+
+Cada dispositivo deberá almacenar localmente toda la información necesaria para continuar funcionando.
+
+Se almacenará localmente:
+
+* configuración de sensores;
+* configuración de actuadores;
+* parámetros de automatización;
+* horarios;
+* límites de seguridad;
+* configuración de red;
+* configuración RS485;
+* configuración Modbus;
+* calibraciones;
+* identificación del dispositivo;
+* identificación del invernadero;
+* configuración de zonas;
+* estado de funcionamiento;
+* modo de operación;
+* parámetros de recuperación;
+* configuración del servidor central;
+* versión de firmware;
+* parámetros de actualización OTA.
+
+La memoria no volátil deberá utilizar un sistema de configuración con versión.
+
+Ejemplo:
+
+```json
+{
+    "config_version": 12,
+    "device_id": "GH-001",
+    "greenhouse_id": "GREENHOUSE-001",
+    "mode": "AUTO"
+}
+```
+
+Si el dispositivo pierde:
+
+```text
+Internet
+WiFi
+Ethernet
+MQTT
+Servidor central
+DNS
+```
+
+deberá continuar funcionando con la última configuración válida almacenada localmente.
+
+---
+
+# 103. Modelo de configuración distribuida
+
+La configuración tendrá dos posibles fuentes:
+
+```text
+MODO LOCAL
+
+ESP32
+  │
+  └── Web local
+       │
+       └── Configuración local
+
+
+MODO SERVIDOR CENTRAL
+
+Servidor
+   │
+   └── Configuración remota
+          │
+          ↓
+        ESP32
+          │
+          └── Guarda copia local
+```
+
+La configuración deberá tener un propietario lógico.
+
+Se propone:
+
+```json
+{
+    "configuration_source": "LOCAL"
+}
+```
+
+o:
+
+```json
+{
+    "configuration_source": "CENTRAL"
+}
+```
+
+Cuando:
+
+```text
+configuration_source = LOCAL
+```
+
+la configuración podrá modificarse desde la página web del ESP32.
+
+Cuando:
+
+```text
+configuration_source = CENTRAL
+```
+
+la configuración deberá administrarse desde el servidor central.
+
+La página local seguirá disponible para:
+
+* visualizar información;
+* consultar diagnósticos;
+* comprobar conectividad;
+* consultar versión;
+* consultar alarmas;
+* realizar mantenimiento;
+* acceder a recuperación;
+* realizar determinadas operaciones de emergencia.
+
+Sin embargo, las configuraciones operativas principales deberán quedar bloqueadas o en modo solo lectura cuando el dispositivo esté administrado por el servidor central.
+
+---
+
+# 104. Política de sincronización de configuración
+
+Toda configuración deberá utilizar un sistema de versiones.
+
+Ejemplo:
+
+```text
+config_version = 42
+```
+
+Cuando el servidor central modifica una configuración:
+
+```text
+Servidor
+   │
+   │ Config v43
+   ↓
+ESP32
+   │
+   ├── valida
+   ├── aplica
+   ├── guarda
+   └── confirma
+```
+
+El dispositivo deberá responder:
+
+```json
+{
+    "device_id": "GH-001",
+    "config_version": 43,
+    "status": "APPLIED"
+}
+```
+
+Si la configuración no puede aplicarse:
+
+```json
+{
+    "device_id": "GH-001",
+    "config_version": 43,
+    "status": "REJECTED",
+    "reason": "INVALID_SENSOR_CONFIGURATION"
+}
+```
+
+La configuración anterior deberá conservarse hasta que la nueva configuración sea validada correctamente.
+
+Se recomienda implementar:
+
+```text
+CONFIG ACTUAL
+CONFIG NUEVA
+CONFIG ANTERIOR
+```
+
+para permitir rollback de configuración.
+
+---
+
+# 105. Página web local del ESP32
+
+El ESP32 deberá disponer de una interfaz web local completa.
+
+Acceso mediante:
+
+```text
+http://invernadero.local
+```
+
+o:
+
+```text
+http://invernadero-esp32.local
+```
+
+o mediante la dirección IP asignada.
+
+La interfaz deberá estar dividida en módulos.
+
+## Dashboard
+
+Mostrar:
+
+* temperatura;
+* humedad;
+* presión;
+* VPD;
+* CO₂;
+* pH;
+* EC;
+* ORP;
+* humedad del suelo;
+* nivel de tanques;
+* caudal;
+* lluvia;
+* velocidad del viento;
+* dirección del viento;
+* luminosidad;
+* PAR/PPFD;
+* estado de bombas;
+* estado de válvulas;
+* ventiladores;
+* iluminación;
+* calefacción;
+* ventanas;
+* techo;
+* sombreado;
+* alarmas;
+* conexión al servidor;
+* conexión WiFi/Ethernet;
+* estado MQTT;
+* estado RS485;
+* versión del firmware.
+
+Los sensores no instalados no deberán aparecer como errores.
+
+Deberán diferenciarse:
+
+```text
+NO INSTALADO
+DESHABILITADO
+SIN COMUNICACIÓN
+ERROR
+VALOR VÁLIDO
+VALOR FUERA DE RANGO
+```
+
+---
+
+# 106. Configuración de red
+
+La página web deberá incorporar un apartado específico:
+
+```text
+CONFIGURACIÓN
+ └── RED
+```
+
+Debe permitir seleccionar:
+
+```text
+☑ WiFi
+☐ Ethernet
+```
+
+y configurar:
+
+* SSID;
+* contraseña;
+* DHCP;
+* IP estática;
+* máscara;
+* gateway;
+* DNS primario;
+* DNS secundario;
+* hostname;
+* mDNS;
+* prioridad de interfaz;
+* servidor NTP;
+* zona horaria;
+* servidor central;
+* MQTT;
+* HTTPS;
+* puerto HTTP;
+* puerto HTTPS;
+* timeout;
+* reconexión automática.
+
+---
+
+# 107. Configuración WiFi mediante búsqueda de redes
+
+La configuración WiFi deberá incorporar un asistente.
+
+Al presionar:
+
+```text
+BUSCAR REDES
+```
+
+el ESP32 realizará un escaneo WiFi.
+
+La interfaz mostrará:
+
+```text
+REDES DISPONIBLES
+
+☑ Casa
+☑ Invernadero
+☑ Oficina
+☑ IoT
+☑ ESP32-Gateway
+```
+
+Al seleccionar una red:
+
+```text
+SSID:
+[ Invernadero              ]
+
+Contraseña:
+[ *********************** ]
+
+[ CONECTAR ]
+```
+
+El usuario no deberá escribir manualmente el SSID.
+
+Se deberá mostrar:
+
+* intensidad de señal;
+* canal;
+* tipo de seguridad;
+* SSID;
+* estado de conexión.
+
+---
+
+# 108. Modo Access Point de configuración
+
+El ESP32 deberá disponer de un modo AP de recuperación.
+
+Ejemplo:
+
+```text
+Invernadero-Setup
+```
+
+El usuario podrá conectarse directamente al ESP32 aunque no exista una red WiFi configurada.
+
+La página de configuración deberá permitir:
+
+```text
+1. Seleccionar red WiFi
+2. Introducir contraseña
+3. Configurar IP
+4. Configurar DNS
+5. Configurar hostname
+6. Configurar mDNS
+7. Configurar servidor central
+8. Guardar
+9. Reiniciar
+```
+
+Si no se consigue conexión después de un número configurable de intentos, el dispositivo deberá poder volver automáticamente al modo AP de configuración.
+
+---
+
+# 109. Ethernet
+
+La arquitectura deberá contemplar Ethernet como interfaz de red de primera clase.
+
+No deberá considerarse únicamente como una función futura aislada.
+
+El software deberá abstraer la interfaz de red:
+
+```text
+NetworkInterface
+       │
+       ├── WiFi
+       │
+       └── Ethernet
+```
+
+De esta manera, las capas superiores no deberán saber si la comunicación utiliza WiFi o Ethernet.
+
+El sistema deberá permitir:
+
+```text
+WiFi solamente
+Ethernet solamente
+WiFi + Ethernet
+```
+
+Cuando ambas interfaces estén disponibles podrá configurarse una prioridad.
+
+Ejemplo:
+
+```text
+PRIORIDAD:
+
+1. Ethernet
+2. WiFi
+```
+
+o:
+
+```text
+1. WiFi
+2. Ethernet
+```
+
+---
+
+# 110. Ethernet como Gateway industrial
+
+Una función especialmente importante será permitir que determinados ESP32 funcionen como gateways.
+
+Ejemplo:
+
+```text
+                    SERVIDOR CENTRAL
+                           │
+                      Ethernet/WiFi
+                           │
+                    ESP32 GATEWAY
+                           │
+                         RS485
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+      SENSOR             SENSOR             SENSOR
+       pH                  EC                 ORP
+```
+
+El gateway podrá:
+
+* leer sensores Modbus;
+* controlar actuadores Modbus;
+* administrar el bus;
+* almacenar temporalmente datos;
+* convertir Modbus → MQTT;
+* convertir Modbus → REST;
+* convertir Modbus → WebSocket;
+* reenviar alarmas;
+* realizar diagnóstico;
+* administrar dispositivos RS485.
+
+Esto permitirá utilizar una placa de la misma familia del proyecto como **gateway universal**.
+
+---
+
+# 111. Arquitectura de nodos
+
+Se definirán diferentes tipos de dispositivos.
+
+## FIELD NODE
+
+Controlador de campo.
+
+```text
+ESP32
++
+Sensores
++
+Actuadores
+```
+
+## RS485 NODE
+
+Dispositivo conectado al bus industrial.
+
+```text
+Sensor
++
+Microcontrolador
++
+RS485
+```
+
+## GATEWAY NODE
+
+Dispositivo que conecta:
+
+```text
+RS485
+     ↕
+ESP32
+     ↕
+Ethernet / WiFi
+```
+
+## CENTRAL SERVER
+
+Servidor que administra:
+
+```text
+Gateways
+Field Nodes
+Sensores
+Actuadores
+Invernaderos
+Usuarios
+Históricos
+Alarmas
+Firmware
+Configuraciones
+```
+
+---
+
+# 112. Bus RS485 generalizado
+
+RS485 deberá convertirse en una capa común del proyecto.
+
+No estará limitada a pH.
+
+Se deberá contemplar:
+
+* pH;
+* EC;
+* ORP;
+* temperatura;
+* humedad;
+* CO₂;
+* oxígeno disuelto;
+* caudal;
+* presión;
+* nivel;
+* radiación;
+* PAR;
+* sensores meteorológicos;
+* estaciones meteorológicas;
+* analizadores de agua;
+* sensores industriales;
+* módulos de entradas digitales;
+* módulos de entradas analógicas;
+* módulos de salidas digitales;
+* módulos de relés;
+* módulos de control de motores.
+
+La arquitectura será:
+
+```text
+ESP32
+ │
+ └── RS485
+      │
+      ├── pH
+      ├── EC
+      ├── ORP
+      ├── Temp
+      ├── CO₂
+      ├── Caudal
+      ├── Nivel
+      └── Módulos I/O
+```
+
+---
+
+# 113. Abstracción de sensores industriales
+
+El firmware no deberá tratar cada sensor Modbus como un caso completamente independiente.
+
+Se deberá crear una abstracción:
+
+```text
+IndustrialSensor
+```
+
+con parámetros como:
+
+```text
+device_id
+slave_id
+manufacturer
+model
+protocol
+baudrate
+parity
+stop_bits
+register_map
+poll_interval
+timeout
+retry_count
+calibration
+unit
+range_min
+range_max
+```
+
+Ejemplo:
+
+```json
+{
+    "device_id": "SENSOR-PH-001",
+    "interface": "RS485",
+    "protocol": "MODBUS_RTU",
+    "slave_id": 10,
+    "baudrate": 9600,
+    "parity": "NONE",
+    "stop_bits": 1,
+    "poll_interval": 5000
+}
+```
+
+---
+
+# 114. Perfiles de sensores Modbus
+
+Para evitar tener que programar manualmente cada sensor, se deberá utilizar un sistema de perfiles.
+
+Ejemplo:
+
+```text
+MODBUS SENSOR PROFILE
+
+Nombre:
+DFRobot pH Industrial
+
+Fabricante:
+DFRobot
+
+Modelo:
+XXXX
+
+Baudrate:
+9600
+
+Registro pH:
+40001
+
+Tipo:
+FLOAT32
+
+Escala:
+0.01
+
+Unidad:
+pH
+```
+
+Otros perfiles:
+
+```text
+PH_GENERIC
+EC_GENERIC
+ORP_GENERIC
+TEMP_GENERIC
+CO2_GENERIC
+FLOW_GENERIC
+LEVEL_GENERIC
+PRESSURE_GENERIC
+WEATHER_GENERIC
+```
+
+El sistema deberá permitir agregar nuevos perfiles sin modificar la lógica principal del sistema.
+
+---
+
+# 115. Auto descubrimiento RS485
+
+El sistema deberá incorporar una función de descubrimiento de dispositivos.
+
+Desde la interfaz:
+
+```text
+RS485
+   ↓
+BUSCAR DISPOSITIVOS
+```
+
+El gateway realizará un escaneo de:
+
+```text
+baudrate
+paridad
+stop bits
+direcciones
+```
+
+cuando corresponda.
+
+El resultado podrá ser:
+
+```text
+DISPOSITIVOS ENCONTRADOS
+
+ID 10
+Fabricante: XXXXX
+Modelo: pH Sensor
+Estado: OK
+
+ID 11
+Fabricante: XXXXX
+Modelo: EC Sensor
+Estado: OK
+
+ID 12
+Fabricante: XXXXX
+Modelo: Temperature Sensor
+Estado: OK
+```
+
+---
+
+# 116. Asignación automática de ID Modbus
+
+El protocolo Modbus RTU no define por sí mismo un mecanismo universal para descubrir y asignar automáticamente direcciones únicas a todos los dispositivos.
+
+Por este motivo, el proyecto deberá implementar un procedimiento de commissioning propio para los dispositivos que sean diseñados específicamente para esta plataforma.
+
+Cada dispositivo de la familia deberá poseer un identificador único permanente:
+
+```text
+DEVICE_UID
+```
+
+Ejemplo:
+
+```text
+INV-7F29A8C2
+```
+
+Durante el proceso de incorporación:
+
+```text
+DEVICE UID
+      ↓
+DISCOVERY
+      ↓
+IDENTIFICACIÓN
+      ↓
+ASIGNACIÓN DE SLAVE ID
+      ↓
+GUARDADO
+      ↓
+VERIFICACIÓN
+```
+
+La dirección Modbus asignada podrá cambiar, pero el UID deberá permanecer permanente.
+
+Esto permite que el servidor central identifique el dispositivo aunque posteriormente cambie su dirección Modbus.
+
+---
+
+# 117. Modo de incorporación de dispositivos
+
+Se implementará un modo:
+
+```text
+PAIRING / COMMISSIONING
+```
+
+En este modo un dispositivo nuevo podrá incorporarse al sistema.
+
+Ejemplo:
+
+```text
+1. Conectar dispositivo RS485
+2. Buscar dispositivos
+3. Detectar UID
+4. Seleccionar dispositivo
+5. Asignar nombre
+6. Asignar función
+7. Asignar zona
+8. Asignar dirección Modbus
+9. Guardar
+10. Probar comunicación
+11. Registrar en servidor central
+```
+
+El dispositivo deberá quedar registrado como:
+
+```text
+PROVISIONED
+```
+
+Una vez finalizado el proceso.
+
+---
+
+# 118. Identidad de dispositivos
+
+La dirección Modbus no deberá utilizarse como identidad principal.
+
+Se utilizará:
+
+```text
+DEVICE_UID
+```
+
+y además:
+
+```text
+device_id
+serial_number
+hardware_revision
+firmware_version
+```
+
+La dirección Modbus será solamente un parámetro de comunicación.
+
+Ejemplo:
+
+```text
+DEVICE_UID:
+INV-SENSOR-000124
+
+MODBUS_ID:
+17
+```
+
+Si posteriormente cambia:
+
+```text
+MODBUS_ID:
+21
+```
+
+seguirá siendo el mismo dispositivo.
+
+---
+
+# 119. Configuración automática de sensores industriales
+
+La interfaz deberá poder mostrar:
+
+```text
+NUEVO SENSOR DETECTADO
+
+UID:
+INV-SENSOR-000124
+
+Tipo:
+pH
+
+Fabricante:
+XXXXX
+
+Modelo:
+XXXXX
+
+¿Agregar al sistema?
+
+[ AGREGAR ]
+```
+
+Después:
+
+```text
+Nombre:
+pH Tanque 1
+
+Zona:
+Fertirriego
+
+Unidad:
+pH
+
+Intervalo:
+5 segundos
+
+[ GUARDAR ]
+```
+
+No deberá ser necesario modificar el código fuente.
+
+---
+
+# 120. Gestión de zonas
+
+El sistema deberá incorporar una abstracción de zonas.
+
+Ejemplo:
+
+```text
+INVERNADERO
+│
+├── ZONA 1
+│   ├── Sensores
+│   ├── Riego
+│   └── Ventilación
+│
+├── ZONA 2
+│   ├── Sensores
+│   ├── Riego
+│   └── Ventilación
+│
+├── ZONA 3
+│
+└── ZONA FERTIRRIEGO
+```
+
+Cada sensor y actuador deberá poder pertenecer a una zona.
+
+Esto permitirá controlar instalaciones grandes sin crear lógica específica para cada instalación.
+
+---
+
+# 121. Motor de automatización por reglas
+
+Se deberá evolucionar el sistema automático hacia un motor de reglas configurable.
+
+Ejemplo:
+
+```text
+SI
+    temperatura > 28 °C
+Y
+    ventilador habilitado
+ENTONCES
+    FAN_01 = ON
+```
+
+Otro ejemplo:
+
+```text
+SI
+    pH < 5.8
+ENTONCES
+    ALARMA = ACTIVE
+```
+
+Otro:
+
+```text
+SI
+    humedad_suelo < 35 %
+Y
+    tanque > 20 %
+Y
+    caudal = OK
+ENTONCES
+    BOMBA = ON
+```
+
+Las reglas deberán poder configurarse desde la interfaz web.
+
+---
+
+# 122. Interlocks de seguridad
+
+El motor de automatización deberá incorporar interlocks.
+
+Ejemplo:
+
+```text
+BOMBA ON
+   ↓
+DEBE EXISTIR CAUDAL
+```
+
+Si no existe:
+
+```text
+BOMBA ON
+CAUDAL = 0
+   ↓
+ALARMA
+   ↓
+BOMBA OFF
+```
+
+Otros interlocks:
+
+```text
+Tanque vacío → bomba OFF
+
+Viento excesivo → techo OFF
+
+Lluvia → techo cerrado
+
+Temperatura excesiva → ventilación ON
+
+Falla de sensor crítico → modo seguro
+
+Sobrecorriente → actuador OFF
+```
+
+---
+
+# 123. Históricos locales
+
+El ESP32 deberá mantener un buffer local de datos.
+
+Ejemplo:
+
+```text
+Sensor
+  ↓
+Memoria local
+  ↓
+Servidor central
+```
+
+Si el servidor está desconectado:
+
+```text
+Sensor
+  ↓
+Memoria local
+       X servidor
+```
+
+Cuando vuelva la conexión:
+
+```text
+Memoria local
+      ↓
+SYNC
+      ↓
+Servidor central
+```
+
+Esto permitirá evitar pérdidas de datos durante interrupciones temporales.
+
+---
+
+# 124. Sincronización de históricos
+
+Cada registro deberá tener:
+
+```text
+timestamp
+device_id
+sensor_id
+value
+unit
+quality
+```
+
+Ejemplo:
+
+```json
+{
+    "timestamp": "2026-09-28T12:00:00-03:00",
+    "device_id": "GH-001",
+    "sensor_id": "TEMP-01",
+    "value": 24.6,
+    "unit": "C",
+    "quality": "GOOD"
+}
+```
+
+La calidad deberá permitir:
+
+```text
+GOOD
+WARNING
+INVALID
+TIMEOUT
+OUT_OF_RANGE
+CALIBRATION
+DISCONNECTED
+```
+
+---
+
+# 125. Fecha y hora
+
+La configuración deberá incluir:
+
+```text
+Zona horaria
+NTP
+Servidor NTP
+Horario de verano
+Formato de fecha
+Formato de hora
+```
+
+La zona horaria deberá preferentemente almacenarse como identificador IANA.
+
+Ejemplo:
+
+```text
+America/Argentina/Buenos_Aires
+```
+
+en lugar de almacenar solamente:
+
+```text
+UTC-3
+```
+
+Esto permite representar correctamente las reglas de zona horaria.
+
+---
+
+# 126. DNS
+
+La página de configuración deberá permitir:
+
+```text
+DNS automático
+DNS manual
+```
+
+Ejemplo:
+
+```text
+DNS 1:
+1.1.1.1
+
+DNS 2:
+8.8.8.8
+```
+
+El sistema deberá permitir además resolver:
+
+```text
+servidor.invernadero.local
+```
+
+o un dominio configurado por el usuario.
+
+---
+
+# 127. mDNS
+
+Cada dispositivo deberá disponer de hostname configurable.
+
+Ejemplo:
+
+```text
+gh-001.local
+gh-002.local
+gateway-001.local
+```
+
+El hostname deberá derivarse inicialmente del `device_id`, pero podrá modificarse desde la web.
+
+---
+
+# 128. Configuración del servidor central
+
+La página local deberá disponer de:
+
+```text
+SERVIDOR CENTRAL
+
+☐ Administrado por servidor central
+
+URL:
+https://servidor.example.com
+
+Puerto:
+443
+
+MQTT:
+broker.example.com
+
+Puerto MQTT:
+8883
+
+Device ID:
+GH-001
+
+Token:
+**************
+
+[ PROBAR CONEXIÓN ]
+```
+
+Si:
+
+```text
+☐ Administrado por servidor central
+```
+
+el dispositivo funcionará de forma local.
+
+Si:
+
+```text
+☑ Administrado por servidor central
+```
+
+el dispositivo pasará al modo centralizado.
+
+---
+
+# 129. Registro de dispositivo en servidor central
+
+El proceso de incorporación será:
+
+```text
+ESP32
+ │
+ ├── Device UID
+ ├── Hardware
+ ├── Firmware
+ └── Capabilities
+        │
+        ↓
+Servidor Central
+        │
+        ├── valida
+        ├── registra
+        └── asigna identidad lógica
+```
+
+Ejemplo:
+
+```json
+{
+    "device_uid": "ESP32-A8F123",
+    "device_id": "GH-001",
+    "hardware": "ESP32-WROOM",
+    "firmware": "7.0.0",
+    "capabilities": [
+        "WIFI",
+        "RS485",
+        "I2C",
+        "SPI",
+        "GPIO"
+    ]
+}
+```
+
+---
+
+# 130. Servidor central
+
+El servidor central será una aplicación independiente del firmware.
+
+Su función será:
+
+```text
+Administración
+Supervisión
+Históricos
+Usuarios
+Permisos
+Configuración
+Alarmas
+Firmware
+OTA
+Actualizaciones
+Inventario
+Diagnóstico
+```
+
+La arquitectura recomendada será:
+
+```text
+                    WEB
+                     │
+                     ↓
+              FRONTEND WEB
+                     │
+                     ↓
+                  API
+                     │
+       ┌─────────────┼─────────────┐
+       │             │             │
+ PostgreSQL        MQTT        Servicios
+       │             │             │
+       └─────────────┼─────────────┘
+                     │
+                  GATEWAYS
+                     │
+                  DEVICES
+```
+
+---
+
+# 131. Componentes del servidor central
+
+El servidor central deberá disponer como mínimo de:
+
+```text
+1. Frontend Web
+2. API REST
+3. WebSocket
+4. MQTT Broker
+5. Base de datos PostgreSQL
+6. Servicio de autenticación
+7. Servicio de configuración
+8. Servicio de alarmas
+9. Servicio de OTA
+10. Servicio de actualización
+11. Servicio de sincronización
+12. Servicio de descubrimiento
+13. Servicio de diagnóstico
+14. Sistema de auditoría
+15. Sistema de backups
+```
+
+---
+
+# 132. Dashboard central
+
+El dashboard deberá mostrar:
+
+```text
+INVERNADEROS
+
+GH-001  ● ONLINE
+GH-002  ● ONLINE
+GH-003  ● OFFLINE
+GH-004  ⚠ ALARMA
+```
+
+Al entrar en un invernadero:
+
+```text
+Temperatura
+Humedad
+VPD
+CO₂
+pH
+EC
+Nivel
+Caudal
+Luz
+Viento
+Lluvia
+Riego
+Ventilación
+Iluminación
+```
+
+con gráficos históricos.
+
+---
+
+# 133. Vista de dispositivo
+
+Cada dispositivo deberá disponer de una ficha:
+
+```text
+GH-001
+
+Estado:
+ONLINE
+
+Device UID:
+ESP32-A8F123
+
+IP:
+192.168.1.100
+
+MAC:
+XX:XX:XX:XX:XX:XX
+
+Firmware:
+7.2.1
+
+Hardware:
+V2.0
+
+Uptime:
+18 días
+
+CPU:
+XX %
+
+RAM:
+XX %
+
+WiFi:
+-52 dBm
+
+RS485:
+OK
+
+MQTT:
+CONNECTED
+
+Servidor:
+CONNECTED
+```
+
+---
+
+# 134. Gestión de usuarios
+
+El servidor deberá disponer de usuarios y roles.
+
+Ejemplo:
+
+```text
+ADMIN
+OPERATOR
+VIEWER
+MAINTENANCE
+```
+
+Permisos independientes:
+
+```text
+Ver datos
+Modificar configuración
+Control manual
+Modificar automatización
+Actualizar firmware
+Administrar usuarios
+Eliminar dispositivos
+Modificar red
+```
+
+---
+
+# 135. Auditoría
+
+Todas las modificaciones importantes deberán registrarse.
+
+Ejemplo:
+
+```text
+2026-09-28 11:32
+Usuario: admin
+Dispositivo: GH-001
+Cambio: FAN_01
+Anterior: 22 °C
+Nuevo: 24 °C
+```
+
+También:
+
+```text
+Configuración modificada
+Firmware actualizado
+Actuador activado manualmente
+Sensor agregado
+Sensor eliminado
+Alarma reconocida
+Usuario creado
+```
+
+---
+
+# 136. Sistema de alarmas
+
+Las alarmas deberán existir tanto localmente como en el servidor.
+
+Tipos:
+
+```text
+SENSOR_ERROR
+SENSOR_TIMEOUT
+VALUE_OUT_OF_RANGE
+LOW_TANK
+NO_FLOW
+OVER_TEMPERATURE
+HIGH_WIND
+RAIN
+COMMUNICATION_ERROR
+RS485_ERROR
+MQTT_ERROR
+SERVER_ERROR
+OTA_ERROR
+CONFIG_ERROR
+ACTUATOR_ERROR
+```
+
+Cada alarma deberá tener:
+
+```text
+ID
+timestamp
+device
+zone
+severity
+status
+message
+source
+acknowledged
+resolved
+```
+
+---
+
+# 137. Severidad de alarmas
+
+Se deberán utilizar niveles:
+
+```text
+INFO
+WARNING
+ERROR
+CRITICAL
+```
+
+Ejemplo:
+
+```text
+WARNING
+Sensor de humedad sin respuesta
+```
+
+o:
+
+```text
+CRITICAL
+Bomba activa sin caudal
+```
+
+---
+
+# 138. API central
+
+La API deberá estar versionada.
+
+Ejemplo:
+
+```text
+/api/v1/devices
+/api/v1/greenhouses
+/api/v1/zones
+/api/v1/sensors
+/api/v1/actuators
+/api/v1/alarms
+/api/v1/events
+/api/v1/configurations
+/api/v1/firmware
+/api/v1/users
+```
+
+Nunca se deberá romper una API existente sin incrementar su versión.
+
+---
+
+# 139. MQTT central
+
+La estructura MQTT deberá evolucionar hacia una jerarquía uniforme.
+
+Ejemplo:
+
+```text
+invernadero/GH-001/state
+invernadero/GH-001/telemetry
+invernadero/GH-001/sensors/#
+invernadero/GH-001/actuators/#
+invernadero/GH-001/events
+invernadero/GH-001/alarms
+invernadero/GH-001/config
+invernadero/GH-001/commands
+invernadero/GH-001/ota
+```
+
+Para dispositivos industriales:
+
+```text
+invernadero/GH-001/rs485/#
+```
+
+---
+
+# 140. Shadow del dispositivo
+
+El servidor central deberá mantener un "Device Shadow".
+
+El Shadow representará:
+
+```text
+CONFIGURACIÓN DESEADA
+CONFIGURACIÓN ACTUAL
+ESTADO ACTUAL
+```
+
+Ejemplo:
+
+```json
+{
+    "desired": {
+        "fan_min_temp": 24
+    },
+    "reported": {
+        "fan_min_temp": 24
+    }
+}
+```
+
+Si:
+
+```text
+desired != reported
+```
+
+el dispositivo deberá sincronizarse.
+
+Esto permitirá recuperar automáticamente la configuración después de una reconexión.
+
+---
+
+# 141. OTA local
+
+La página web local deberá incorporar:
+
+```text
+SISTEMA
+ └── ACTUALIZACIÓN DE FIRMWARE
+```
+
+Mostrar:
+
+```text
+Versión instalada:
+7.1.0
+
+Última versión disponible:
+7.2.0
+
+Estado:
+NUEVA VERSIÓN DISPONIBLE
+```
+
+y:
+
+```text
+[ VER CAMBIOS ]
+[ ACTUALIZAR ]
+```
+
+---
+
+# 142. Manifest de firmware
+
+El proyecto deberá mantener un archivo JSON en GitHub.
+
+Ejemplo:
+
+```json
+{
+    "project": "Invernadero",
+    "channel": "stable",
+    "version": "7.2.0",
+    "release_date": "2026-09-28",
+    "firmware_url": "https://...",
+    "sha256": "...",
+    "release_notes_url": "https://...",
+    "min_bootloader": "1.0.0",
+    "min_hardware": "1.0"
+}
+```
+
+El dispositivo consultará periódicamente el manifest.
+
+---
+
+# 143. Verificación de actualización
+
+El proceso deberá ser:
+
+```text
+ESP32
+  │
+  ├── consulta manifest
+  │
+  ├── compara versión
+  │
+  ├── detecta actualización
+  │
+  ↓
+WEB LOCAL
+  │
+  └── "Nueva versión disponible"
+```
+
+La actualización no deberá ejecutarse automáticamente salvo que el usuario lo habilite expresamente.
+
+---
+
+# 144. OTA desde servidor central
+
+El servidor central deberá utilizar el mismo sistema de manifest.
+
+La administración podrá mostrar:
+
+```text
+Firmware
+
+Actual:
+7.1.0
+
+Disponible:
+7.2.0
+
+Dispositivos afectados:
+12
+
+Compatibilidad:
+10 compatibles
+2 requieren actualización de hardware
+```
+
+El administrador podrá seleccionar:
+
+```text
+☑ GH-001
+☑ GH-002
+☐ GH-003
+```
+
+y realizar:
+
+```text
+ACTUALIZAR SELECCIONADOS
+```
+
+---
+
+# 145. Actualización por grupos
+
+Para instalaciones grandes no se deberá actualizar todo simultáneamente.
+
+Se deberá permitir:
+
+```text
+GRUPO PILOTO
+GRUPO 1
+GRUPO 2
+GRUPO 3
+```
+
+Proceso:
+
+```text
+1. Actualizar un dispositivo
+2. Verificar
+3. Esperar período de observación
+4. Actualizar siguiente grupo
+5. Continuar
+```
+
+Esto reduce el riesgo de una actualización defectuosa generalizada.
+
+---
+
+# 146. Rollback OTA
+
+El dispositivo deberá utilizar particiones OTA y rollback cuando el hardware/partición lo permita.
+
+Proceso:
+
+```text
+Firmware actual
+      ↓
+Descarga
+      ↓
+Verificación SHA-256
+      ↓
+Instalación
+      ↓
+Reinicio
+      ↓
+Boot de prueba
+      ↓
+Health Check
+      │
+ ┌────┴────┐
+ OK       ERROR
+ │          │
+ ↓          ↓
+CONFIRMAR  ROLLBACK
+```
+
+Nunca deberá considerarse exitosa una actualización solamente porque el archivo se descargó correctamente.
+
+---
+
+# 147. Compatibilidad de firmware
+
+Cada firmware deberá declarar:
+
+```text
+firmware_version
+hardware_version
+bootloader_version
+config_schema_version
+protocol_version
+```
+
+Ejemplo:
+
+```json
+{
+    "firmware": "7.2.0",
+    "hardware": "2.0",
+    "config_schema": 14,
+    "protocol": 3
+}
+```
+
+Esto permitirá evitar cargar firmware incompatible.
+
+---
+
+# 148. Canales de actualización
+
+El manifest podrá soportar:
+
+```text
+stable
+beta
+development
+```
+
+El usuario podrá elegir desde la configuración:
+
+```text
+Canal:
+[ STABLE ]
+```
+
+Por defecto:
+
+```text
+STABLE
+```
+
+---
+
+# 149. Diagnóstico remoto
+
+El servidor deberá poder consultar:
+
+```text
+CPU
+RAM
+Flash
+Uptime
+Temperatura interna
+WiFi RSSI
+Ethernet
+MQTT
+RS485
+Sensores
+Actuadores
+Watchdog
+Reinicios
+Errores
+Logs
+```
+
+Esto permitirá diagnosticar un dispositivo sin estar físicamente presente.
+
+---
+
+# 150. Registro de reinicios
+
+El ESP32 deberá registrar la causa de cada reinicio.
+
+Ejemplo:
+
+```text
+POWER_ON
+SOFTWARE_RESET
+WATCHDOG
+BROWNOUT
+PANIC
+OTA
+FACTORY_RESET
+UNKNOWN
+```
+
+El servidor podrá mostrar:
+
+```text
+Últimos reinicios
+
+28/09 08:31 → POWER_ON
+27/09 22:14 → WATCHDOG
+26/09 19:42 → OTA
+```
+
+---
+
+# 151. Registro de eventos local
+
+El dispositivo deberá disponer de un Event Log.
+
+Ejemplo:
+
+```text
+11:20 SENSOR pH ONLINE
+11:21 BOMBA_01 ON
+11:22 CAUDAL OK
+11:25 BOMBA_01 OFF
+11:30 MQTT DISCONNECTED
+11:31 MQTT RECONNECTED
+```
+
+---
+
+# 152. Seguridad de comunicaciones
+
+Las comunicaciones con el servidor deberán utilizar preferentemente:
+
+```text
+HTTPS
+MQTTS
+```
+
+cuando la infraestructura lo permita.
+
+El dispositivo deberá autenticarse mediante credenciales o identidad propia.
+
+No se deberán utilizar credenciales globales idénticas para todos los dispositivos.
+
+Cada dispositivo deberá tener identidad propia.
+
+---
+
+# 153. Certificados
+
+Para instalaciones de mayor tamaño se deberá contemplar:
+
+```text
+TLS
+CA
+Certificado de dispositivo
+Clave privada
+```
+
+Esto permitirá implementar posteriormente autenticación mutua:
+
+```text
+ESP32 ⇄ Servidor
+```
+
+mediante certificados.
+
+---
+
+# 154. Seguridad de configuración local
+
+La página local deberá disponer de autenticación.
+
+Se deberán separar:
+
+```text
+VIEW
+OPERATOR
+ADMIN
+MAINTENANCE
+```
+
+El acceso a:
+
+```text
+WiFi
+Ethernet
+MQTT
+Servidor
+OTA
+Factory Reset
+```
+
+deberá requerir permisos elevados.
+
+---
+
+# 155. Configuración de fábrica
+
+El sistema deberá conservar un mecanismo de recuperación.
+
+Se podrá utilizar:
+
+```text
+Botón físico
++
+Web
++
+API
+```
+
+El reset podrá tener diferentes niveles:
+
+```text
+RESET NETWORK
+RESET CONFIGURATION
+RESET AUTOMATION
+FACTORY RESET
+```
+
+No deberá ser necesario borrar todo el sistema para solucionar un problema de WiFi.
+
+---
+
+# 156. Exportación e importación de configuración
+
+La web local y el servidor central deberán permitir:
+
+```text
+EXPORTAR CONFIGURACIÓN
+```
+
+generando:
+
+```text
+config.json
+```
+
+y:
+
+```text
+IMPORTAR CONFIGURACIÓN
+```
+
+Antes de aplicar una configuración se deberá:
+
+```text
+validar
+crear backup
+aplicar
+probar
+confirmar
+```
+
+---
+
+# 157. Backup automático
+
+El servidor central deberá realizar backups de:
+
+```text
+Base de datos
+Configuraciones
+Usuarios
+Históricos
+Firmware metadata
+Perfiles Modbus
+Reglas
+Escenarios
+```
+
+Los backups deberán poder restaurarse.
+
+---
+
+# 158. Base de datos central ampliada
+
+Además de las tablas actuales, se recomienda incorporar:
+
+```text
+users
+roles
+permissions
+
+greenhouses
+zones
+devices
+device_capabilities
+device_credentials
+
+sensors
+sensor_types
+sensor_profiles
+sensor_readings
+
+actuators
+actuator_types
+actuator_states
+
+modbus_devices
+modbus_profiles
+modbus_registers
+
+automations
+automation_rules
+schedules
+
+alarms
+events
+audit_logs
+
+configurations
+configuration_versions
+
+firmware_versions
+firmware_releases
+ota_jobs
+ota_results
+
+network_interfaces
+gateways
+
+notifications
+```
+
+---
+
+# 159. Arquitectura de datos
+
+La base de datos deberá separar:
+
+```text
+DEFINICIÓN
+```
+
+de:
+
+```text
+TELEMETRÍA
+```
+
+Por ejemplo:
+
+```text
+sensors
+```
+
+define qué sensor existe.
+
+Mientras:
+
+```text
+sensor_readings
+```
+
+contiene las mediciones.
+
+Esto permitirá administrar millones de mediciones sin mezclar configuración con telemetría.
+
+---
+
+# 160. Retención de históricos
+
+El servidor deberá permitir configurar:
+
+```text
+Retención:
+7 días
+30 días
+90 días
+1 año
+Personalizado
+```
+
+También se podrán generar datos agregados:
+
+```text
+1 segundo
+1 minuto
+5 minutos
+1 hora
+1 día
+```
+
+para reducir almacenamiento.
+
+---
+
+# 161. Visualización de históricos
+
+Los gráficos deberán permitir:
+
+```text
+Última hora
+Últimas 6 horas
+24 horas
+7 días
+30 días
+Personalizado
+```
+
+y superponer:
+
+```text
+Temperatura
+Humedad
+VPD
+CO₂
+pH
+EC
+Riego
+Iluminación
+```
+
+Esto permitirá analizar la relación entre condiciones ambientales y acciones realizadas.
+
+---
+
+# 162. Integración pH + EC + automatización
+
+La incorporación de pH y EC permitirá crear automatizaciones de fertirriego.
+
+Ejemplo:
+
+```text
+pH
+EC
+Caudal
+Nivel
+Temperatura
+```
+
+podrán formar parte de una única estrategia de control.
+
+Ejemplo conceptual:
+
+```text
+SI
+    EC < objetivo
+Y
+    tanque disponible
+Y
+    caudal correcto
+ENTONCES
+    ejecutar dosificación
+```
+
+Todas estas funciones deberán poder deshabilitarse si la instalación no dispone de los sensores correspondientes.
+
+---
+
+# 163. Sensores industriales adicionales
+
+La arquitectura deberá contemplar sensores industriales de:
+
+### Calidad del agua
+
+```text
+pH
+EC
+ORP
+Temperatura
+Turbidez
+Oxígeno disuelto
+```
+
+### Clima
+
+```text
+Temperatura
+Humedad
+Presión
+CO₂
+Radiación
+PAR
+Viento
+Lluvia
+```
+
+### Hidráulica
+
+```text
+Caudal
+Presión
+Nivel
+```
+
+### Suelo
+
+```text
+Temperatura
+Humedad
+Conductividad
+```
+
+### Actuación industrial
+
+```text
+Relés Modbus
+I/O digitales
+I/O analógicas
+Variadores
+Controladores
+```
+
+---
+
+# 164. Módulos Modbus propios
+
+Una ventaja importante del proyecto será poder crear módulos propios.
+
+Ejemplo:
+
+```text
+ESP32
+ +
+RS485
+ +
+8 entradas digitales
+```
+
+o:
+
+```text
+ESP32
+ +
+RS485
+ +
+8 salidas digitales
+```
+
+o:
+
+```text
+ESP32
+ +
+RS485
+ +
+4 entradas analógicas
+```
+
+Estos módulos podrán funcionar como dispositivos Modbus RTU estándar.
+
+---
+
+# 165. Módulo universal I/O
+
+Se podrá desarrollar posteriormente un módulo:
+
+```text
+INVERNADERO I/O MODULE
+```
+
+con:
+
+```text
+8 DI
+8 DO
+4 AI
+2 AO
+RS485
+```
+
+El servidor podrá detectarlo y mostrar automáticamente sus recursos.
+
+---
+
+# 166. Sistema de capacidades
+
+Cada dispositivo deberá anunciar sus capacidades.
+
+Ejemplo:
+
+```json
+{
+    "capabilities": [
+        "TEMP",
+        "HUMIDITY",
+        "RS485",
+        "RELAY_8",
+        "PWM_4"
+    ]
+}
+```
+
+El servidor podrá construir automáticamente la interfaz según estas capacidades.
+
+Esto permitirá evitar interfaces rígidas.
+
+---
+
+# 167. Interfaz dinámica
+
+Si un dispositivo tiene:
+
+```text
+4 sensores
+```
+
+se mostrarán cuatro sensores.
+
+Si otro tiene:
+
+```text
+32 sensores
+```
+
+la interfaz se adaptará.
+
+Lo mismo para:
+
+```text
+salidas
+zonas
+RS485
+Modbus
+alarmas
+```
+
+---
+
+# 168. Descubrimiento de dispositivos IP
+
+Además del descubrimiento RS485, el servidor podrá detectar dispositivos mediante:
+
+```text
+mDNS
+MQTT
+registro manual
+provisioning
+```
+
+Ejemplo:
+
+```text
+Nuevo dispositivo detectado
+
+GH-009
+IP: 192.168.1.109
+UID: ESP32-XXXX
+Firmware: 7.1.0
+
+[ REGISTRAR ]
+```
+
+---
+
+# 169. Provisioning
+
+Se deberá crear un proceso de incorporación seguro.
+
+```text
+DISPOSITIVO NUEVO
+       ↓
+PROVISIONING
+       ↓
+IDENTIDAD
+       ↓
+CREDENCIALES
+       ↓
+SERVIDOR
+       ↓
+CONFIGURACIÓN
+       ↓
+OPERACIÓN
+```
+
+Esto será especialmente importante cuando existan decenas o cientos de dispositivos.
+
+---
+
+# 170. Gateway multi-bus
+
+Una futura placa gateway podrá incorporar:
+
+```text
+Ethernet
+WiFi
+RS485
+CAN
+I²C
+SPI
+GPIO
+```
+
+Su función será conectar diferentes tecnologías.
+
+Ejemplo:
+
+```text
+                     Ethernet
+                        │
+                        ↓
+                  ESP32 GATEWAY
+                        │
+       ┌────────────────┼────────────────┐
+       │                │                │
+     RS485             CAN              WiFi
+       │                │                │
+   sensores          módulos          sensores
+```
+
+Esto permitirá evolucionar posteriormente el proyecto hacia instalaciones mucho más grandes.
+
+---
+
+# 171. Arquitectura de red para instalaciones grandes
+
+Una instalación grande podrá utilizar:
+
+```text
+                    SERVIDOR
+                       │
+                  Ethernet
+                       │
+                 CORE GATEWAY
+                       │
+          ┌────────────┼────────────┐
+          │            │            │
+       Gateway A    Gateway B    Gateway C
+          │            │            │
+        RS485        RS485        RS485
+          │            │            │
+       ZONA 1       ZONA 2       ZONA 3
+```
+
+Cada gateway podrá controlar una zona física.
+
+Esto reduce:
+
+* longitud de cables;
+* cantidad de sensores conectados directamente;
+* carga de un único ESP32;
+* complejidad del cableado.
+
+---
+
+# 172. Funcionamiento ante pérdida del servidor
+
+Debe existir una política explícita:
+
+```text
+Servidor perdido
+      ↓
+NO detener automatización
+      ↓
+Continuar control local
+      ↓
+Guardar eventos
+      ↓
+Guardar históricos
+      ↓
+Intentar reconexión
+      ↓
+Sincronizar al recuperar conexión
+```
+
+La automatización crítica nunca deberá depender de una consulta al servidor para cada decisión.
+
+---
+
+# 173. Funcionamiento ante pérdida de red
+
+Si se pierde:
+
+```text
+WiFi
+```
+
+pero existe:
+
+```text
+Ethernet
+```
+
+el sistema deberá intentar Ethernet.
+
+Si se pierde:
+
+```text
+Ethernet
+```
+
+pero existe:
+
+```text
+WiFi
+```
+
+podrá intentar WiFi.
+
+Si ambas fallan:
+
+```text
+CONTROL LOCAL
+```
+
+deberá continuar funcionando.
+
+---
+
+# 174. Arquitectura de prioridad de control
+
+La prioridad recomendada será:
+
+```text
+1. SEGURIDAD
+2. PROTECCIÓN HARDWARE
+3. MANUAL LOCAL DE EMERGENCIA
+4. AUTOMATIZACIÓN LOCAL
+5. PROGRAMACIONES
+6. COMANDOS DEL SERVIDOR
+7. COMANDOS REMOTOS NO CRÍTICOS
+```
+
+Un comando remoto nunca deberá poder saltarse un interlock de seguridad.
+
+---
+
+# 175. Estado de cada dispositivo
+
+Todos los dispositivos deberán utilizar una máquina de estados.
+
+Ejemplo:
+
+```text
+BOOT
+ ↓
+INIT
+ ↓
+SELF_TEST
+ ↓
+NETWORK
+ ↓
+SYNC
+ ↓
+RUN
+ ↓
+DEGRADED
+ ↓
+RECOVERY
+```
+
+Estados posibles:
+
+```text
+BOOTING
+INITIALIZING
+ONLINE
+OFFLINE
+DEGRADED
+ERROR
+MAINTENANCE
+UPDATING
+RECOVERY
+```
+
+---
+
+# 176. Estado de calidad de datos
+
+Cada sensor deberá proporcionar:
+
+```text
+value
+unit
+timestamp
+quality
+```
+
+Ejemplo:
+
+```json
+{
+    "sensor": "PH-01",
+    "value": 6.32,
+    "unit": "pH",
+    "quality": "GOOD"
+}
+```
+
+Esto evitará que un valor inválido sea interpretado como una medición real.
+
+---
+
+# 177. Diagnóstico RS485
+
+La página local deberá incluir:
+
+```text
+RS485 DIAGNOSTICS
+```
+
+mostrando:
+
+```text
+Baudrate
+Parity
+Stop bits
+TX
+RX
+CRC errors
+Timeouts
+Retries
+Devices found
+Last response
+```
+
+Esto será especialmente útil durante la instalación.
+
+---
+
+# 178. Herramienta Modbus
+
+La interfaz de mantenimiento podrá incorporar un lector Modbus.
+
+Ejemplo:
+
+```text
+Slave ID:
+10
+
+Function:
+03
+
+Register:
+40001
+
+Quantity:
+2
+
+[ READ ]
+```
+
+Resultado:
+
+```text
+40001 = 632
+40002 = 245
+```
+
+Esta herramienta deberá estar restringida a usuarios con permisos de mantenimiento.
+
+---
+
+# 179. Perfiles de hardware
+
+Cada placa deberá declarar:
+
+```text
+HARDWARE PROFILE
+```
+
+Ejemplo:
+
+```text
+ESP32-GH-V1
+ESP32-GH-V2
+ESP32-GATEWAY-V1
+ESP32-IO-V1
+```
+
+Cada perfil indicará:
+
+```text
+GPIO
+ADC
+SPI
+I2C
+RS485
+Ethernet
+PWM
+74HC595
+```
+
+Esto permitirá mantener un firmware común con diferentes variantes de hardware.
+
+---
+
+# 180. Arquitectura de firmware recomendada
+
+La estructura deberá evolucionar hacia:
+
+```text
+src/
+│
+├── core/
+│   ├── device
+│   ├── state
+│   ├── scheduler
+│   └── capabilities
+│
+├── config/
+│   ├── config_manager
+│   ├── schema
+│   └── validation
+│
+├── network/
+│   ├── wifi
+│   ├── ethernet
+│   ├── mdns
+│   ├── dns
+│   └── ntp
+│
+├── protocols/
+│   ├── mqtt
+│   ├── rest
+│   ├── websocket
+│   ├── modbus
+│   └── rs485
+│
+├── sensors/
+│   ├── analog
+│   ├── i2c
+│   ├── onewire
+│   └── industrial
+│
+├── actuators/
+│   ├── digital
+│   ├── pwm
+│   ├── relay
+│   ├── mosfet
+│   └── motor
+│
+├── automation/
+│   ├── climate
+│   ├── irrigation
+│   ├── lighting
+│   ├── fertigation
+│   └── safety
+│
+├── web/
+│   ├── dashboard
+│   ├── configuration
+│   ├── diagnostics
+│   └── ota
+│
+├── storage/
+│   ├── nvs
+│   ├── history
+│   └── events
+│
+├── ota/
+│   ├── manifest
+│   ├── updater
+│   └── rollback
+│
+└── diagnostics/
+    ├── logs
+    ├── watchdog
+    └── health
+```
+
+---
+
+# 181. API del dispositivo
+
+La API local deberá evolucionar hacia:
+
+```text
+/api/v1/device
+/api/v1/status
+/api/v1/capabilities
+
+/api/v1/sensors
+/api/v1/sensors/{id}
+
+/api/v1/actuators
+/api/v1/actuators/{id}
+
+/api/v1/zones
+/api/v1/automation
+
+/api/v1/config
+/api/v1/config/schema
+
+/api/v1/network
+/api/v1/rs485
+/api/v1/modbus
+
+/api/v1/events
+/api/v1/alarms
+
+/api/v1/diagnostics
+
+/api/v1/firmware
+/api/v1/ota
+```
+
+---
+
+# 182. WebSocket
+
+El WebSocket deberá transmitir eventos en tiempo real.
+
+Ejemplo:
+
+```json
+{
+    "type": "sensor_update",
+    "sensor": "TEMP-01",
+    "value": 24.7,
+    "unit": "C"
+}
+```
+
+También:
+
+```json
+{
+    "type": "alarm",
+    "severity": "WARNING",
+    "message": "Sin caudal"
+}
+```
+
+y:
+
+```json
+{
+    "type": "device_state",
+    "state": "ONLINE"
+}
+```
+
+---
+
+# 183. Telemetría
+
+La telemetría deberá utilizar un modelo común.
+
+```text
+timestamp
+device_id
+resource_id
+value
+unit
+quality
+```
+
+Esto permitirá utilizar exactamente el mismo modelo para:
+
+```text
+sensor local
+sensor Modbus
+sensor remoto
+sensor industrial
+```
+
+---
+
+# 184. Sistema de plugins de sensores
+
+En una etapa avanzada, los sensores deberán funcionar mediante drivers.
+
+Ejemplo:
+
+```text
+SensorDriver
+    │
+    ├── SHT31
+    ├── AHT20
+    ├── DS18B20
+    ├── BH1750
+    ├── SEN0161
+    ├── SEN024
+    ├── ModbusPH
+    ├── ModbusEC
+    └── ModbusGeneric
+```
+
+El sistema podrá detectar qué drivers están disponibles y qué recursos están habilitados.
+
+---
+
+# 185. Sistema de plugins de actuadores
+
+De la misma forma:
+
+```text
+ActuatorDriver
+    │
+    ├── Digital
+    ├── PWM
+    ├── Relay
+    ├── MOSFET
+    ├── SSR
+    ├── Motor
+    ├── ModbusRelay
+    └── ModbusIO
+```
+
+---
+
+# 186. Expansión de salidas
+
+La arquitectura de expansión deberá utilizar el sistema definido anteriormente:
+
+```text
+ESP32
+ │
+ └── SPI
+      │
+      ├── 74HC595
+      ├── 74HC595
+      ├── 74HC595
+      └── 74HC595
+```
+
+Cada registro proporciona ocho salidas lógicas.
+
+Las salidas deberán conectarse posteriormente a:
+
+```text
+MOSFET
+Relay
+SSR
+Driver
+Contactor
+H-Bridge
+```
+
+El 74HC595/74HCT595 no deberá utilizarse directamente para alimentar cargas de potencia.
+
+---
+
+# 187. PWM expandido
+
+El sistema podrá utilizar el 74HC595 como expansión lógica para canales PWM cuando el diseño de firmware utilice transferencia SPI, temporización y buffers adecuados.
+
+Sin embargo, deberá diferenciarse:
+
+```text
+74HC595
+=
+expansor de salidas lógicas
+```
+
+de:
+
+```text
+ESP32 hardware PWM
+=
+generación PWM real
+```
+
+Para canales que requieran alta frecuencia, alta resolución o sincronización estricta se utilizará el PWM hardware del ESP32 o un controlador PWM dedicado.
+
+---
+
+# 188. Seguridad eléctrica
+
+La arquitectura deberá separar:
+
+```text
+3.3 V lógica
+5 V lógica
+12 V
+24 V
+230 V AC
+```
+
+Las cargas de potencia deberán utilizar drivers apropiados.
+
+Para cargas inductivas:
+
+```text
+MOSFET / Relay
++
+protección flyback
+```
+
+Para cargas de red:
+
+```text
+aislamiento
++
+SSR/contactor
++
+protecciones
++
+fusible
+```
+
+El diseño de PCB deberá mantener separación física entre lógica y potencia.
+
+---
+
+# 189. Watchdog y recuperación
+
+Todos los dispositivos deberán incorporar:
+
+```text
+Watchdog
+```
+
+y supervisión de:
+
+```text
+WiFi
+Ethernet
+MQTT
+RS485
+sensores
+automatización
+memoria
+```
+
+Un fallo de comunicación no deberá bloquear el loop principal.
+
+---
+
+# 190. Pruebas automáticas
+
+El proyecto deberá incorporar pruebas para:
+
+```text
+Configuración
+JSON
+Sensores
+Modbus
+RS485
+Automatización
+Alarmas
+OTA
+Rollback
+Networking
+MQTT
+API
+```
+
+Se deberán crear simuladores para sensores y dispositivos Modbus cuando sea posible.
+
+---
+
+# 191. Simulador de dispositivos
+
+Se podrá crear un modo:
+
+```text
+SIMULATION_MODE
+```
+
+que permita generar:
+
+```text
+Temperatura
+Humedad
+pH
+EC
+Nivel
+Caudal
+CO₂
+Viento
+Lluvia
+```
+
+sin hardware físico.
+
+Esto permitirá probar la plataforma central antes de conectar sensores reales.
+
+---
+
+# 192. Modo mantenimiento
+
+Cada dispositivo deberá tener:
+
+```text
+NORMAL
+MAINTENANCE
+```
+
+En mantenimiento se podrán realizar:
+
+```text
+Test GPIO
+Test relés
+Test PWM
+Test RS485
+Scan Modbus
+Test sensores
+Test red
+Test MQTT
+OTA
+Exportación
+Diagnóstico
+```
+
+Las funciones peligrosas deberán requerir confirmación.
+
+---
+
+# 193. Control manual seguro
+
+El control manual deberá tener:
+
+```text
+ON
+OFF
+AUTO
+```
+
+y opcionalmente:
+
+```text
+DURATION
+```
+
+Ejemplo:
+
+```text
+BOMBA 1
+
+[ ON 30 segundos ]
+```
+
+Al finalizar:
+
+```text
+AUTO
+```
+
+o:
+
+```text
+OFF
+```
+
+según la configuración.
+
+---
+
+# 194. Interfaz de instalación
+
+Se deberá crear un asistente:
+
+```text
+CONFIGURACIÓN INICIAL
+```
+
+Paso 1:
+
+```text
+Identificación
+```
+
+Paso 2:
+
+```text
+Red
+```
+
+Paso 3:
+
+```text
+Sensores
+```
+
+Paso 4:
+
+```text
+RS485
+```
+
+Paso 5:
+
+```text
+Actuadores
+```
+
+Paso 6:
+
+```text
+Zonas
+```
+
+Paso 7:
+
+```text
+Automatización
+```
+
+Paso 8:
+
+```text
+Servidor central
+```
+
+Paso 9:
+
+```text
+Prueba del sistema
+```
+
+Paso 10:
+
+```text
+Finalizar
+```
+
+---
+
+# 195. Plantillas de instalación
+
+El servidor podrá ofrecer plantillas:
+
+```text
+INVERNADERO INTERIOR
+INVERNADERO EXTERIOR
+HIDROPONÍA
+FERTIRRIEGO
+VIVER0
+INVERNADERO MULTIZONA
+```
+
+La plantilla configurará inicialmente:
+
+```text
+sensores
+actuadores
+reglas
+zonas
+alarmas
+dashboard
+```
+
+El usuario podrá modificar posteriormente cualquier parámetro.
+
+---
+
+# 196. Compatibilidad futura
+
+La arquitectura deberá diseñarse evitando dependencias innecesarias de un único modelo de ESP32.
+
+El objetivo será permitir:
+
+```text
+ESP32
+ESP32-S3
+ESP32 Ethernet
+ESP32 Gateway
+```
+
+y futuras variantes siempre que proporcionen las interfaces necesarias.
+
+---
+
+# 197. Escalabilidad final
+
+El sistema deberá poder crecer progresivamente:
+
+```text
+Nivel 1
+
+ESP32
++
+SHT31
++
+DS18B20
++
+suelo
++
+bomba
+```
+
+hasta:
+
+```text
+Nivel 2
+
+ESP32
++
+74HC595
++
+RS485
++
+pH
++
+EC
++
+CO₂
++
+varias zonas
+```
+
+hasta:
+
+```text
+Nivel 3
+
+Múltiples ESP32
++
+Ethernet
++
+WiFi
++
+RS485
++
+Gateways
++
+Servidor central
++
+PostgreSQL
++
+MQTT
++
+OTA
+```
+
+y finalmente:
+
+```text
+Nivel 4
+
+Múltiples invernaderos
++
+múltiples gateways
++
+múltiples buses industriales
++
+usuarios
++
+roles
++
+históricos
++
+alarmas
++
+automatización distribuida
++
+gestión centralizada de firmware
+```
+
+---
+
+# 198. Arquitectura final propuesta
+
+La arquitectura completa del proyecto quedará:
+
+```text
+                              INTERNET / LAN
+                                    │
+                             ┌──────▼──────┐
+                             │   SERVIDOR  │
+                             │   CENTRAL   │
+                             └──────┬──────┘
+                                    │
+                   ┌────────────────┼────────────────┐
+                   │                │                │
+                  API              MQTT             OTA
+                   │                │                │
+                   └────────────────┼────────────────┘
+                                    │
+                              RED IP LOCAL
+                                    │
+                 ┌──────────────────┼──────────────────┐
+                 │                  │                  │
+            GATEWAY 01         GATEWAY 02         ESP32 DIRECTO
+            Ethernet/WiFi      Ethernet/WiFi
+                 │                  │
+               RS485              RS485
+                 │                  │
+       ┌─────────┼─────────┐      ├─────────┐
+       │         │         │      │         │
+      pH        EC        ORP    CO₂       TEMP
+       │         │         │      │         │
+       └─────────┴─────────┴──────┴─────────┘
+
+                       NODOS DE CAMPO
+                              │
+             ┌────────────────┼────────────────┐
+             │                │                │
+           I²C              SPI              ADC
+             │                │                │
+         sensores         74HC595         ADS1115
+             │                │                │
+             └────────────────┼────────────────┘
+                              │
+                         ESP32 FIELD
+                              │
+                   ┌──────────┴──────────┐
+                   │                     │
+                SENSORES              ACTUADORES
+                                      │
+                            ┌─────────┼─────────┐
+                            │         │         │
+                          Relay     MOSFET     SSR
+                            │         │         │
+                          Bombas   Ventil.   Iluminación
+```
+
+---
+
+# 199. Principio fundamental de la arquitectura final
+
+El sistema deberá cumplir siempre las siguientes reglas:
+
+```text
+1. El dispositivo debe poder funcionar sin servidor.
+
+2. El servidor nunca debe ser necesario para mantener
+   una función automática crítica.
+
+3. Toda configuración importante debe almacenarse localmente.
+
+4. El servidor debe mantener una copia de la configuración.
+
+5. Las configuraciones deberán tener versión.
+
+6. Las actualizaciones deberán poder revertirse.
+
+7. Los sensores deberán poder agregarse sin modificar
+   la lógica principal del sistema.
+
+8. RS485 deberá ser un bus industrial general,
+   no únicamente un bus para pH.
+
+9. Modbus deberá utilizar perfiles configurables.
+
+10. Los dispositivos deberán tener una identidad permanente
+    independiente de su dirección Modbus.
+
+11. Ethernet y WiFi deberán ser interfaces intercambiables
+    dentro de la arquitectura de red.
+
+12. La página local deberá permitir recuperar y mantener
+    el dispositivo aun cuando el servidor central no esté disponible.
+
+13. El servidor central deberá administrar múltiples
+    dispositivos e instalaciones.
+
+14. La automatización deberá ejecutarse localmente.
+
+15. Las comunicaciones deberán considerarse una capa
+    independiente de la lógica de control.
+```
+
+---
+
+# 200. Conclusión y visión final del proyecto
+
+El proyecto evolucionará desde un sistema de automatización de un único invernadero hacia una plataforma distribuida de automatización agrícola.
+
+El ESP32 continuará siendo el núcleo de control de campo, pero dejará de estar limitado a sensores conectados directamente a sus GPIO.
+
+La plataforma podrá integrar:
+
+```text
+GPIO
+I²C
+SPI
+1-Wire
+ADC
+PWM
+RS485
+Modbus RTU
+WiFi
+Ethernet
+MQTT
+REST
+WebSocket
+```
+
+Esto permitirá combinar sensores económicos y fáciles de conseguir con instrumentación industrial.
+
+Un sistema pequeño podrá utilizar:
+
+```text
+ESP32
++
+SHT31
++
+DS18B20
++
+humedad de suelo
++
+bomba
++
+ventilador
+```
+
+Mientras que un sistema avanzado podrá utilizar:
+
+```text
+ESP32
++
+Ethernet
++
+RS485
++
+pH industrial
++
+EC industrial
++
+ORP
++
+CO₂
++
+caudal
++
+presión
++
+nivel
++
+estación meteorológica
++
+múltiples zonas
++
+múltiples actuadores
++
+gateway
++
+servidor central
+```
+
+sin modificar el concepto fundamental de la plataforma.
+
+La página web local será el elemento de configuración y mantenimiento de cada dispositivo cuando este funcione de manera independiente.
+
+Cuando el dispositivo esté configurado como administrado por un servidor central, el servidor pasará a ser la interfaz principal de administración, manteniendo siempre una copia local de la configuración necesaria para garantizar la autonomía.
+
+La incorporación de gateways Ethernet/WiFi + RS485 permitirá desplegar instalaciones grandes donde una única placa no tenga que concentrar todos los sensores.
+
+La incorporación de perfiles Modbus permitirá integrar instrumentación industrial de diferentes fabricantes.
+
+La incorporación de un sistema de identidad permanente permitirá realizar descubrimiento, provisioning y administración de dispositivos sin depender exclusivamente de las direcciones Modbus.
+
+La incorporación de un manifest de firmware alojado en GitHub permitirá implementar un sistema de actualización OTA controlado, con detección de nuevas versiones, verificación de integridad, compatibilidad de hardware, registro de actualización y rollback.
+
+Finalmente, el servidor central permitirá transformar el proyecto en una plataforma capaz de administrar:
+
+```text
+                 ┌──────────────────────┐
+                 │  SERVIDOR CENTRAL    │
+                 └──────────┬───────────┘
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+      INVERNADERO 1     INVERNADERO 2     INVERNADERO 3
+          │                 │                 │
+       GATEWAYS          GATEWAYS          GATEWAYS
+          │                 │                 │
+       NODOS              NODOS              NODOS
+          │                 │                 │
+       SENSORES          SENSORES          SENSORES
+       ACTUADORES        ACTUADORES        ACTUADORES
+```
+
+La meta final no será simplemente construir un firmware para un invernadero.
+
+La meta será desarrollar una **plataforma modular, distribuida, escalable y configurable de automatización de invernaderos**, capaz de comenzar con una instalación pequeña y crecer progresivamente hasta sistemas multizona y multinvernadero con instrumentación industrial, redes Ethernet/WiFi, buses RS485/Modbus y administración centralizada.
+
+El principio fundamental seguirá siendo:
+
+```text
+                     SERVIDOR CENTRAL
+                           │
+                 SUPERVISIÓN / GESTIÓN
+                           │
+                    RED / MQTT / API
+                           │
+                    GATEWAY / NODO
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+              SENSORES           ACTUADORES
+                 │                   │
+                 └──────── ESP32 ────┘
+                           │
+                    AUTOMATIZACIÓN
+                           │
+                       AUTÓNOMA
+```
+
+**El servidor administra.
+El gateway comunica.
+El ESP32 controla.
+Los sensores informan.
+Los actuadores ejecutan.
+La automatización continúa funcionando aunque la red desaparezca.**

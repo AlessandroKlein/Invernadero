@@ -7,6 +7,7 @@
 
 #include "core/Types.hpp"
 #include "core/PinMap.hpp"
+#include "core/Version.hpp"
 
 #include "config/ConfigManager.hpp"
 #include "storage/History.hpp"
@@ -32,11 +33,9 @@
 #include "system/Watchdog.hpp"
 #include "system/OtaManager.hpp"
 #include "system/Diagnostics.hpp"
+#include "system/Device.hpp"
 
 using namespace gh;
-
-#define FW_VERSION "3.0.0"
-#define HW_VERSION "rev0"
 
 // Contexto compartido entre setup/loop y la tarea de automatización.
 struct App {
@@ -81,10 +80,13 @@ static void automationTask(void* arg) {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.printf("\n[BOOT] Invernadero %s (hw %s)\n", FW_VERSION, HW_VERSION);
+  Device::setState(DeviceState::BOOTING);
+  Serial.printf("\n[BOOT] Invernadero %s (hw %s)\n", GH_FW_VERSION, GH_HW_VERSION);
+  Serial.printf("[BOOT] UID %s | Reinicio: %s\n", Device::uid(), resetCauseString(Device::resetCause()));
 
   // 1) Configuración (NVS + JSON).
   app.config.begin();
+  Device::setState(DeviceState::INITIALIZING);
 
   // 2) Historial.
   app.history.begin(128);
@@ -102,6 +104,7 @@ void setup() {
   app.sensors.begin(app.config.get());
   app.actuators.begin(app.config.get(), &app.shift, &app.mcp);
   app.actuators.allSafeState();
+  Device::setState(DeviceState::SELF_TEST);
 
   // 5) Controladores.
   app.climate.begin(&app.sensors, &app.actuators, &app.history);
@@ -112,8 +115,10 @@ void setup() {
 
   // 6) Red, MQTT, API, WebSocket, OTA, Watchdog.
   app.network.begin(app.config.get());
+  Device::setState(DeviceState::NETWORK);
   app.mqtt.begin(app.config.get());
-  app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history);
+  app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history,
+                &app.network, &app.mqtt);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);
@@ -122,6 +127,7 @@ void setup() {
   xTaskCreatePinnedToCore(automationTask, "automation", 8192, nullptr, 1, nullptr, 0);
 
   app.history.add(0, "Sistema iniciado");
+  Device::setState(DeviceState::RUN);
   Serial.println("[BOOT] Listo");
 }
 

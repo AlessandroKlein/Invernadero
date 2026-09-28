@@ -63,6 +63,18 @@ public:
   bool lightAvailable() const { return light_.available(); }
   bool co2Available() const { return co2_.available(); }
 
+  // Diagnóstico RS485/Modbus (secciones 115/177).
+  uint8_t scanModbus(uint8_t* found, uint8_t maxFound) { return modbus_.scan(found, maxFound); }
+  ModbusStats modbusStats() const { return modbus_.stats(); }
+
+  // Herramienta Modbus de mantenimiento (sección 178).
+  bool modbusReadHolding(uint8_t slaveId, uint16_t addr, uint16_t count, uint16_t* out) {
+    return modbus_.readHoldingRegisters(slaveId, addr, count, out);
+  }
+  bool modbusReadInput(uint8_t slaveId, uint16_t addr, uint16_t count, uint16_t* out) {
+    return modbus_.readInputRegisters(slaveId, addr, count, out);
+  }
+
 private:
   // Drivers de hardware.
   TempHumSensor sht31_;       // interior (SHT31)
