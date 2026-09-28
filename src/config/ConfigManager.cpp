@@ -1,5 +1,6 @@
 #include "config/ConfigManager.hpp"
 #include "config/Defaults.hpp"
+#include "system/Device.hpp"
 
 #include <ArduinoJson.h>
 
@@ -21,11 +22,13 @@ void ConfigManager::begin() {
     SystemConfig parsed;
     if (fromJson(json, parsed)) {
       cfg_ = parsed; // Configuración previa válida
+      ensureAdminPassword();
       return;
     }
   }
   // Si no había configuración (o estaba corrupta), usar valores de fábrica.
   cfg_ = defaults();
+  ensureAdminPassword();
   save();
 }
 
@@ -50,12 +53,41 @@ void ConfigManager::save() {
   // Persistir tanto la configuración actual como la anterior (rollback).
   prefs_.putString(NVS_KEY, toJson(cfg_));
   prefs_.putString(NVS_KEY_PREV, toJson(prev_));
+  // El password de admin vive en una key separada (no se exporta en el JSON).
+  prefs_.putString(NVS_KEY_ADMIN_PASS, cfg_.adminPass);
+}
+
+void ConfigManager::ensureAdminPassword() {
+  // Si no hay contraseña local, derivarla del UID del dispositivo (sección 254:
+  // evita una contraseña universal idéntica para todos los dispositivos).
+  if (cfg_.adminPass[0] == '\0') {
+    strncpy(cfg_.adminPass, Device::uid(), sizeof(cfg_.adminPass) - 1);
+    cfg_.adminPass[sizeof(cfg_.adminPass) - 1] = '\0';
+  }
+  // Recuperar un password previamente persistido (tiene prioridad).
+  String saved = prefs_.getString(NVS_KEY_ADMIN_PASS, "");
+  if (saved.length() > 0) strncpy(cfg_.adminPass, saved.c_str(), sizeof(cfg_.adminPass) - 1);
+}
+
+bool ConfigManager::auth(const String& user, const String& pass) const {
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  bool ok = (user == String(cfg_.adminUser)) && (pass == String(cfg_.adminPass));
+  if (mutex_) xSemaphoreGive(mutex_);
+  return ok;
+}
+
+String ConfigManager::adminUser() const {
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  String u(cfg_.adminUser);
+  if (mutex_) xSemaphoreGive(mutex_);
+  return u;
 }
 
 void ConfigManager::factoryReset() {
   // FACTORY RESET: restaura todo y descarta el rollback (sección 155).
   if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
   cfg_ = defaults();
+  ensureAdminPassword();  // Re-deriva la contraseña local del UID
   prev_ = cfg_;
   if (mutex_) xSemaphoreGive(mutex_);
   save();
@@ -257,6 +289,10 @@ String ConfigManager::toJson(const SystemConfig& c) {
   a["window"] = c.actWindow;
   a["shade"] = c.actShade;
 
+  // Autenticación local (sección 154): solo el usuario, nunca el password.
+  JsonObject auth = doc.createNestedObject("auth");
+  auth["user"] = c.adminUser;
+
   // Zonas (sección 120).
   JsonArray zones = doc.createNestedArray("zones");
   for (uint8_t i = 0; i < c.zoneCount && i < 8; i++) zones.add(c.zoneNames[i]);
@@ -416,6 +452,10 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     out.actRoof = a["roof"] | out.actRoof;
     out.actWindow = a["window"] | out.actWindow;
     out.actShade = a["shade"] | out.actShade;
+  }
+  // Autenticación local (sección 154): solo el usuario (el password viaja por NVS separado).
+  if (doc["auth"].is<JsonObject>()) {
+    copyStr(doc["auth"]["user"] | "admin", out.adminUser, sizeof(out.adminUser));
   }
   // Zonas (sección 120).
   if (doc["zones"].is<JsonArray>()) {

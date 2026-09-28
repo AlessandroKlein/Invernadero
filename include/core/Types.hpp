@@ -321,6 +321,10 @@ struct SystemConfig {
   bool actWindow = false;
   bool actShade = false;
 
+  // Autenticación local de la web (secciones 19/154/204).
+  char adminUser[32] = "admin";     // Usuario administrador local
+  char adminPass[64] = "";          // Si está vacía, se deriva del UID en el primer arranque
+
   // Zonas (sección 120).
   uint8_t zoneCount = 4;
   char zoneNames[8][16] = {"Zona 1", "Zona 2", "Zona 3", "Zona 4", "", "", "", ""};

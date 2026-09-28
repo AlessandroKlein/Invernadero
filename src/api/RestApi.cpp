@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <esp_system.h>
 
 #include "web/WebAssets.hpp"
 #include "system/Device.hpp"
@@ -40,32 +41,33 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/sensors", HTTP_GET, [this]() { handleSensors(); });
   server_.on("/api/v1/actuators", HTTP_GET, [this]() { handleActuators(); });
   server_.on("/api/v1/config", HTTP_GET, [this]() { handleConfigGet(); });
-  server_.on("/api/v1/config", HTTP_PUT, [this]() { handleConfigPut(); });
+  server_.on("/api/v1/config", HTTP_PUT, [this]() { if (requireAuth()) handleConfigPut(); });
   server_.on("/api/v1/config/export", HTTP_GET, [this]() { handleConfigExport(); });
-  server_.on("/api/v1/config/import", HTTP_POST, [this]() { handleConfigImport(); });
+  server_.on("/api/v1/config/import", HTTP_POST, [this]() { if (requireAuth()) handleConfigImport(); });
   server_.on("/api/v1/automation", HTTP_GET, [this]() { handleAutomationGet(); });
-  server_.on("/api/v1/automation", HTTP_POST, [this]() { handleAutomationPost(); });
-  server_.on("/api/v1/automation", HTTP_DELETE, [this]() { handleAutomationDelete(); });
+  server_.on("/api/v1/automation", HTTP_POST, [this]() { if (requireAuth()) handleAutomationPost(); });
+  server_.on("/api/v1/automation", HTTP_DELETE, [this]() { if (requireAuth()) handleAutomationDelete(); });
   server_.on("/api/v1/events", HTTP_GET, [this]() { handleEvents(); });
   server_.on("/api/v1/alarms", HTTP_GET, [this]() { handleAlarms(); });
-  server_.on("/api/v1/actuators", HTTP_POST, [this]() { handleActuatorCommand(); });
-  server_.on("/api/v1/factory-reset", HTTP_POST, [this]() { handleFactoryReset(); });
+  server_.on("/api/v1/actuators", HTTP_POST, [this]() { if (requireAuth()) handleActuatorCommand(); });
+  server_.on("/api/v1/factory-reset", HTTP_POST, [this]() { if (requireAuth()) handleFactoryReset(); });
 
   // Ampliación de la API (sección 181): identidad, capacidades, red, RS485, etc.
   server_.on("/api/v1/device", HTTP_GET, [this]() { handleDevice(); });
   server_.on("/api/v1/capabilities", HTTP_GET, [this]() { handleCapabilities(); });
   server_.on("/api/v1/config/schema", HTTP_GET, [this]() { handleConfigSchema(); });
   server_.on("/api/v1/network", HTTP_GET, [this]() { handleNetwork(); });
-  server_.on("/api/v1/network/scan", HTTP_POST, [this]() { handleNetworkScan(); });
+  server_.on("/api/v1/network/scan", HTTP_POST, [this]() { if (requireAuth()) handleNetworkScan(); });
   server_.on("/api/v1/rs485", HTTP_GET, [this]() { handleRs485(); });
-  server_.on("/api/v1/rs485/scan", HTTP_POST, [this]() { handleRs485Scan(); });
+  server_.on("/api/v1/rs485/scan", HTTP_POST, [this]() { if (requireAuth()) handleRs485Scan(); });
   server_.on("/api/v1/modbus", HTTP_GET, [this]() { handleModbus(); });
   server_.on("/api/v1/firmware", HTTP_GET, [this]() { handleFirmware(); });
   server_.on("/api/v1/ota", HTTP_GET, [this]() { handleOta(); });
   server_.on("/api/v1/zones", HTTP_GET, [this]() { handleZones(); });
   server_.on("/api/v1/diagnostics", HTTP_GET, [this]() { handleDiagnostics(); });
-  server_.on("/api/v1/reset", HTTP_POST, [this]() { handleReset(); });
-  server_.on("/api/v1/config/rollback", HTTP_POST, [this]() { handleRollback(); });
+  server_.on("/api/v1/reset", HTTP_POST, [this]() { if (requireAuth()) handleReset(); });
+  server_.on("/api/v1/config/rollback", HTTP_POST, [this]() { if (requireAuth()) handleRollback(); });
+  server_.on("/api/v1/auth/login", HTTP_POST, [this]() { handleLogin(); });
 }
 
 void RestApi::handleRoot() {
@@ -404,6 +406,50 @@ void RestApi::handleAutomationDelete() {
   if (!rules_) { server_.send(404, "application/json", "{\"error\":\"rule engine no disponible\"}"); return; }
   rules_->clear();
   server_.send(200, "application/json", "{\"ok\":true,\"count\":0}");
+}
+
+void RestApi::handleLogin() {
+  if (!cfg_) { server_.send(503, "application/json", "{\"error\":\"config no disponible\"}"); return; }
+  if (!server_.hasArg("plain")) { server_.send(400, "application/json", "{\"error\":\"body requerido\"}"); return; }
+  DynamicJsonDocument doc(256);
+  if (deserializeJson(doc, server_.arg("plain"))) { server_.send(400, "text/plain", "JSON inválido"); return; }
+  String user = doc["user"] | "";
+  String pass = doc["pass"] | "";
+  if (!cfg_->auth(user, pass)) {
+    server_.send(401, "application/json", "{\"error\":\"credenciales inválidas\"}");
+    return;
+  }
+  issueToken();
+  DynamicJsonDocument r(256);
+  r["ok"] = true;
+  r["token"] = sessionToken_;
+  r["user"] = cfg_->adminUser();
+  String out;
+  serializeJson(r, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::issueToken() {
+  // Token de sesión en RAM con expiración (sección 154). No es persistente.
+  snprintf(sessionToken_, sizeof(sessionToken_), "%08lX%08X",
+           (unsigned long)millis(), (unsigned)esp_random());
+  sessionExpires_ = millis() + 3600UL * 1000UL; // 1 hora
+}
+
+bool RestApi::requireAuth() {
+  // Verifica el token de sesión. Acepta "Authorization: Bearer <token>" o
+  // el header "X-Auth-Token: <token>". Sin token vigente -> 401.
+  String token = server_.header("X-Auth-Token");
+  if (token.length() == 0) {
+    String auth = server_.header("Authorization");
+    if (auth.startsWith("Bearer ")) token = auth.substring(7);
+  }
+  if (token.length() > 0 && sessionToken_[0] != '\0' &&
+      token == String(sessionToken_) && millis() < sessionExpires_) {
+    return true;
+  }
+  server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
+  return false;
 }
 
 String RestApi::buildStatusJson() {

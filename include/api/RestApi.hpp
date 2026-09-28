@@ -21,7 +21,6 @@ public:
              NetworkManager* net = nullptr, MqttManager* mqtt = nullptr);
   void loop() { server_.handleClient(); }
   void setRuleEngine(RuleEngine* r) { rules_ = r; }
-
 private:
   WebServer server_{80};
   ConfigManager* cfg_ = nullptr;
@@ -31,6 +30,10 @@ private:
   NetworkManager* network_ = nullptr;
   MqttManager* mqtt_ = nullptr;
   RuleEngine* rules_ = nullptr;
+
+  // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
+  char sessionToken_[40] = "";
+  uint32_t sessionExpires_ = 0;
 
   void setupRoutes();
   void handleRoot();
@@ -62,6 +65,9 @@ private:
   void handleDiagnostics();
   void handleReset();
   void handleRollback();
+  void handleLogin();
+  bool requireAuth();
+  void issueToken();
   String buildStatusJson();
 };
 

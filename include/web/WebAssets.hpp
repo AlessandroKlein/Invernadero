@@ -37,6 +37,7 @@ label{font-size:.8rem;color:var(--off)}
 <body>
 <h1 id="title">Invernadero</h1>
 <div class="sub" id="subtitle">—</div>
+<button id="loginBtn" style="margin-bottom:12px" onclick="login()">Iniciar sesión</button>
 
 <section><h2>Sensores</h2><div class="grid" id="sensors"></div></section>
 <section><h2>Actuadores</h2><div id="actuators"></div></section>
@@ -44,7 +45,25 @@ label{font-size:.8rem;color:var(--off)}
 
 <script>
 const api = '/api/v1';
+let token = localStorage.getItem('gh_token') || '';
 async function j(path, opts){ const r = await fetch(path, opts); return r.json(); }
+
+function updateLoginUi(){
+  const b = document.getElementById('loginBtn');
+  b.textContent = token ? 'Cerrar sesión' : 'Iniciar sesión';
+}
+
+async function login(){
+  if(token){ token=''; localStorage.removeItem('gh_token'); updateLoginUi(); return; }
+  const u = prompt('Usuario','admin'); if(u===null) return;
+  const p = prompt('Contraseña',''); if(p===null) return;
+  const r = await fetch(api+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({user:u,pass:p})});
+  const d = await r.json();
+  if(d.ok){ token = d.token; localStorage.setItem('gh_token', token); updateLoginUi(); }
+  else alert('Credenciales inválidas');
+}
+updateLoginUi();
 
 function statusColor(s){ return s===1?'var(--accent)':(s===2?'var(--warn)':'var(--err)'); }
 
@@ -69,7 +88,7 @@ async function setAct(name, val){
   const map={Bomba:'pump','Válvula':'valve','Ventilador':'fan','Extractor':'extractor',
              'Calefacción':'heater','Humidificador':'humidifier','Iluminación':'light','Alarma':'alarm'};
   let role='pump'; for(const k in map){ if(name.startsWith(k)){role=map[k];break;} }
-  await fetch(api+'/actuators',{method:'POST',headers:{'Content-Type':'application/json'},
+  await fetch(api+'/actuators',{method:'POST',headers:{'Content-Type':'application/json','X-Auth-Token':token},
     body:JSON.stringify({role,index:0,output:val})});
   loadActuators();
 }
