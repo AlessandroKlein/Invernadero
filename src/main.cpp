@@ -1,18 +1,146 @@
-#include <Arduino.h>
+// PROYECTO INTEGRAL DE AUTOMATIZACIÓN MODULAR DE INVERNADERO BASADO EN ESP32
+// Punto de entrada: inicializa todos los módulos y lanza la tarea de automatización.
 
-// put function declarations here:
-int myFunction(int, int);
+#include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
+#include "core/Types.hpp"
+#include "core/PinMap.hpp"
+
+#include "config/ConfigManager.hpp"
+#include "storage/History.hpp"
+
+#include "hardware/ShiftRegister595.hpp"
+#include "hardware/Mcp23017.hpp"
+
+#include "sensors/SensorManager.hpp"
+#include "actuators/ActuatorManager.hpp"
+
+#include "control/ClimateController.hpp"
+#include "control/IrrigationController.hpp"
+#include "control/LightingController.hpp"
+#include "control/RoofController.hpp"
+#include "control/SafetyController.hpp"
+
+#include "network/NetworkManager.hpp"
+#include "network/MqttManager.hpp"
+
+#include "api/RestApi.hpp"
+#include "api/WebSocketServer.hpp"
+
+#include "system/Watchdog.hpp"
+#include "system/OtaManager.hpp"
+#include "system/Diagnostics.hpp"
+
+using namespace gh;
+
+#define FW_VERSION "3.0.0"
+#define HW_VERSION "rev0"
+
+// Contexto compartido entre setup/loop y la tarea de automatización.
+struct App {
+  ConfigManager config;
+  History history;
+  ShiftRegister595 shift;
+  Mcp23017 mcp;
+  SensorManager sensors;
+  ActuatorManager actuators;
+  ClimateController climate;
+  IrrigationController irrigation;
+  LightingController lighting;
+  RoofController roof;
+  SafetyController safety;
+  NetworkManager network;
+  MqttManager mqtt;
+  RestApi api;
+  WebSocketServer ws;
+  Watchdog watchdog;
+  OtaManager ota;
+};
+static App app;
+
+// Tarea de automatización: lectura de sensores + control + aplicación de salidas.
+static void automationTask(void* arg) {
+  (void)arg;
+  for (;;) {
+    SystemConfig cfg = app.config.get();
+
+    app.sensors.update();          // Leer sensores habilitados
+    app.safety.update(cfg);        // Seguridad (prioridad máxima)
+    app.climate.update(cfg);       // Clima
+    app.irrigation.update(cfg);    // Riego
+    app.lighting.update(cfg);      // Iluminación
+    app.roof.update(cfg);          // Techo/ventanas
+    app.actuators.apply();         // Escribir salidas físicas
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
+  }
+}
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  delay(200);
+  Serial.printf("\n[BOOT] Invernadero %s (hw %s)\n", FW_VERSION, HW_VERSION);
+
+  // 1) Configuración (NVS + JSON).
+  app.config.begin();
+
+  // 2) Historial.
+  app.history.begin(128);
+
+  // 3) Hardware de salida: 74HC595 (SPI) + MCP23017 (I²C).
+  app.shift.begin(pins::HC595_MOSI, pins::HC595_SCLK, pins::HC595_LATCH, pins::HC595_COUNT);
+  app.shift.allOff(); // estado seguro al arrancar (sección 21.14)
+  // Soft-PWM deshabilitado por defecto (modo digital ON/OFF seguro). Para PWM
+  // de alta frecuencia se recomienda LEDC en GPIO o controlador dedicado.
+  // app.shift.setPwmEnabled(true, 200, 8);
+  Wire.begin(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_FREQ);
+  app.mcp.begin(pins::I2C_ADDR_MCP23017_1, &Wire);
+
+  // 4) Sensores y actuadores.
+  app.sensors.begin(app.config.get());
+  app.actuators.begin(app.config.get(), &app.shift, &app.mcp);
+  app.actuators.allSafeState();
+
+  // 5) Controladores.
+  app.climate.begin(&app.sensors, &app.actuators, &app.history);
+  app.irrigation.begin(&app.sensors, &app.actuators, &app.history);
+  app.lighting.begin(&app.sensors, &app.actuators);
+  app.roof.begin(&app.sensors, &app.actuators);
+  app.safety.begin(&app.sensors, &app.actuators, &app.history);
+
+  // 6) Red, MQTT, API, WebSocket, OTA, Watchdog.
+  app.network.begin(app.config.get());
+  app.mqtt.begin(app.config.get());
+  app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history);
+  app.ws.begin(&app.config, &app.sensors, &app.actuators);
+  app.ota.begin(app.config.get().hostname);
+  app.watchdog.begin(30);
+
+  // 7) Lanzar tarea de automatización en el núcleo 0.
+  xTaskCreatePinnedToCore(automationTask, "automation", 8192, nullptr, 1, nullptr, 0);
+
+  app.history.add(0, "Sistema iniciado");
+  Serial.println("[BOOT] Listo");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+  app.network.loop();
+  app.mqtt.loop();
+  app.api.loop();
+  app.ws.loop();
+  app.ota.loop();
+  app.watchdog.feed();
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  // Publicar estado por MQTT cada 10 s (si hay servidor central).
+  static uint32_t lastMqtt = 0;
+  if (millis() - lastMqtt > 10000) {
+    lastMqtt = millis();
+    if (app.mqtt.connected()) {
+      app.mqtt.publishSensors(app.sensors.toJson());
+      app.mqtt.publishActuators(app.actuators.toJson());
+    }
+  }
+  delay(10);
 }
