@@ -56,6 +56,25 @@ Se suscribe a `greenhouse/+/#` y escribe en PostgreSQL (estado, sensores,
 actuadores, eventos, alarmas y **estación meteorológica** — `.../weather`, que se
 guarda en `device_shadow.reported.weather`).
 
+## Actualización OTA (desde el servidor)
+
+El dashboard (vista **Firmware**) permite subir un `.bin` y actualizar dispositivos
+con un botón, sin perder configuración ni datos:
+
+1. **Subir firmware** → `POST /api/v1/firmware/upload` guarda el `.bin` en
+   `public/firmware/<version>.bin`, calcula el **SHA-256** y lo registra en
+   `firmware_versions`.
+2. **Actualizar dispositivo** → `POST /api/v1/devices/{id}/ota` crea un `ota_job`
+   y publica en MQTT `greenhouse/{id}/cmd`:
+   ```json
+   { "type": "ota", "version": "3.7.0", "url": "http://<host>/firmware/3.7.0.bin", "sha256": "..." }
+   ```
+3. El ESP32 descarga el `.bin`, **verifica el SHA-256** y lo instala en la partición
+   OTA inactiva (doble partición `app0`/`app1`). La **configuración (NVS)** y los
+   **datos (SPIFFS)** viven fuera de las particiones de app y se preservan.
+4. Si el nuevo firmware no arranca, el **bootloader revierte** automáticamente a la
+   partición anterior (rollback, sección 146 del `README.md`).
+
 ## Estructura
 
 ```
@@ -92,6 +111,8 @@ server/
 | GET/PUT | `/api/v1/devices/{id}/shadow` | Device Shadow |
 | GET/POST | `/api/v1/devices/{id}/config` | Configuración versionada |
 | GET | `/api/v1/firmware` | Versiones de firmware |
+| POST | `/api/v1/firmware/upload` | Subir `.bin` (multipart: `file`, `version`, `channel`, `hardware_profile`) |
+| POST | `/api/v1/devices/{id}/ota` | Disparar actualización OTA (`{"version":"..."}`) — publica comando MQTT |
 
 El resto de endpoints requieren header `Authorization: Bearer <token>`.
 

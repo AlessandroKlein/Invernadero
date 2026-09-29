@@ -48,17 +48,19 @@ function buildNav() {
   if (can('device.read')) items.push(['devices', 'Dispositivos']);
   if (can('user.read')) items.push(['users', 'Usuarios']);
   if (can('user.read')) items.push(['roles', 'Roles y permisos']);
+  if (can('firmware.read')) items.push(['firmware', 'Firmware']);
   $('#nav').innerHTML = items.map(([k, label]) => `<a href="#" data-view="${k}">${label}</a>`).join('');
   $('#nav').querySelectorAll('a').forEach((a) => (a.onclick = (e) => { e.preventDefault(); openView(a.dataset.view); }));
 }
 
 function openView(name) {
   document.querySelectorAll('.view').forEach((v) => hide('#' + v.id));
-  const m = { devices: '#view-devices', users: '#view-users', roles: '#view-roles' };
+  const m = { devices: '#view-devices', users: '#view-users', roles: '#view-roles', firmware: '#view-firmware' };
   show(m[name] || '#view-devices');
   if (name === 'devices') loadDevices();
   if (name === 'users') loadUsers();
   if (name === 'roles') loadRoles();
+  if (name === 'firmware') loadFirmware();
 }
 
 // ---------- Dispositivos ----------
@@ -192,12 +194,61 @@ $('#logout').onclick = logout;
 $('#new-user').onclick = () => openUserModal(null);
 $('#u-cancel').onclick = closeUserModal;
 $('#u-save').onclick = saveUser;
+$('#fw-upload').onclick = uploadFirmware;
 
 if (token && user) {
   $('#whoami').textContent = `${user.full_name || user.username} · ${(user.roles || []).join(', ')}`;
   hide('#login'); show('#app');
   buildNav(); openView('devices');
 } else { showLogin(); }
+
+// ---------- Firmware (OTA) ----------
+async function loadFirmware() {
+  try {
+    const [fw, devices] = await Promise.all([api('/firmware'), api('/devices')]);
+    $('#fw-list').innerHTML = fw.map((f) => `
+      <tr><td>${f.version}</td><td>${f.channel || ''}</td><td>${f.hardware_profile || ''}</td>
+      <td class="meta">${(f.sha256 || '').slice(0, 12)}…</td><td>${f.release_date || ''}</td></tr>`).join('')
+      || '<tr><td colspan="5">Sin versiones</td></tr>';
+
+    const opts = fw.map((f) => `<option value="${f.version}">${f.version}</option>`).join('');
+    $('#fw-devices').innerHTML = devices.map((d) => `
+      <tr><td>${d.device_id} · ${d.name || ''}</td><td>${d.firmware_version || '—'}</td>
+      <td><select class="fw-ver">${opts || '<option value="">—</option>'}</select></td>
+      <td><button class="fw-update" onclick="updateDeviceFw('${d.device_id}', this)">Actualizar</button></td></tr>`).join('')
+      || '<tr><td colspan="4">Sin dispositivos</td></tr>';
+  } catch (e) { $('#fw-msg').textContent = e.message; }
+}
+
+async function uploadFirmware() {
+  const file = $('#fw-file').files[0];
+  const version = $('#fw-version').value.trim();
+  if (!file || !version) { $('#fw-msg').textContent = 'Indicá archivo .bin y versión.'; return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('version', version);
+  try {
+    const r = await fetch('/api/v1/firmware/upload', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd,
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    $('#fw-msg').textContent = 'Firmware subido: ' + version + ' (SHA ' + (data.sha256 || '').slice(0, 12) + '…)';
+    $('#fw-version').value = ''; $('#fw-file').value = '';
+    loadFirmware();
+  } catch (e) { $('#fw-msg').textContent = e.message; }
+}
+
+async function updateDeviceFw(deviceId, btn) {
+  const select = btn.closest('tr').querySelector('.fw-ver');
+  const version = select ? select.value : '';
+  if (!version) { alert('Seleccioná una versión'); return; }
+  if (!confirm(`¿Actualizar ${deviceId} a ${version}?\nLa configuración y los datos se preservan (particiones OTA + rollback).`)) return;
+  try {
+    const r = await api(`/devices/${deviceId}/ota`, { method: 'POST', body: JSON.stringify({ version }) });
+    $('#fw-msg').textContent = r.ok ? `OTA enviado a ${deviceId} (${r.status})` : `No se pudo publicar: ${r.status}`;
+  } catch (e) { $('#fw-msg').textContent = e.message; }
+}
 
 // Tema claro/oscuro (persistido en localStorage)
 function syncTheme(){

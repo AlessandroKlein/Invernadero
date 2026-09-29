@@ -48,8 +48,7 @@ final class Api
                 case 'devices':
                     self::devices($seg, $method, $auth);
                 case 'firmware':
-                    Permissions::require($auth, 'firmware.read');
-                    self::firmware();
+                    self::firmware($seg[1] ?? null, $method, $auth);
                 case 'events':
                     Permissions::require($auth, 'device.read');
                     self::events($seg[1] ?? null);
@@ -318,7 +317,7 @@ final class Api
             Response::json($dev);
         }
 
-        self::deviceSub($dev, $sub, $seg, $method);
+        self::deviceSub($dev, $sub, $seg, $method, $auth);
     }
 
     private static function findDevice(string $idOrDeviceId): ?array
@@ -330,7 +329,7 @@ final class Api
         return $row ?: null;
     }
 
-    private static function deviceSub(array $dev, string $sub, array $seg, string $method): never
+    private static function deviceSub(array $dev, string $sub, array $seg, string $method, array $auth): never
     {
         $db = Database::get();
         $did = $dev['id'];
@@ -390,9 +389,56 @@ final class Api
                 $st->execute([$did]);
                 Response::json($st->fetchAll());
 
+            case 'ota':
+                if ($method === 'POST') {
+                    Permissions::require($auth, 'ota.execute');
+                    self::triggerOta($dev);
+                }
+                $st = $db->prepare('SELECT * FROM ota_jobs WHERE device_id = ? ORDER BY created_at DESC LIMIT 50');
+                $st->execute([$did]);
+                Response::json($st->fetchAll());
+
             default:
                 Response::error('Sub-recurso no encontrado', 404);
         }
+    }
+
+    private static function triggerOta(array $dev): never
+    {
+        $in = json_decode(file_get_contents('php://input') ?: '[]', true) ?: [];
+        $version = trim($in['version'] ?? '');
+        if ($version === '') {
+            Response::error('Versión requerida', 400);
+        }
+
+        $db = Database::get();
+        $st = $db->prepare(
+            'SELECT * FROM firmware_versions
+             WHERE version = ? AND (hardware_profile = ? OR hardware_profile IS NULL)
+             ORDER BY release_date DESC LIMIT 1'
+        );
+        $st->execute([$version, $dev['hardware_profile'] ?? 'ESP32-GH-V1']);
+        $fw = $st->fetch();
+        if (!$fw) {
+            Response::error('Firmware no encontrado', 404);
+        }
+
+        $job = $db->prepare('INSERT INTO ota_jobs (firmware_id, device_id, status) VALUES (?, ?, ?) RETURNING id');
+        $job->execute([$fw['id'], $dev['id'], 'PENDING']);
+        $jobId = $job->fetch()['id'];
+
+        $ok = Mqtt::publish('greenhouse/' . $dev['device_id'] . '/cmd', [
+            'type' => 'ota',
+            'version' => $fw['version'],
+            'url' => $fw['url'],
+            'sha256' => $fw['sha256'],
+            'job_id' => $jobId,
+        ]);
+
+        $db->prepare('UPDATE ota_jobs SET status = ?, result = ? WHERE id = ?')
+            ->execute([$ok ? 'SENT' : 'MQTT_ERROR', $ok ? null : 'No se pudo publicar el comando MQTT', $jobId]);
+
+        Response::json(['ok' => $ok, 'job_id' => $jobId, 'status' => $ok ? 'SENT' : 'MQTT_ERROR']);
     }
 
     private static function ingestReadings(string $did): never
@@ -447,11 +493,66 @@ final class Api
         Response::json(array_reverse($st->fetchAll()));
     }
 
-    private static function firmware(): never
+    private static function firmware(?string $sub, string $method, array $auth): never
+    {
+        if ($sub === 'upload' && $method === 'POST') {
+            Permissions::require($auth, 'firmware.update');
+            self::firmwareUpload();
+        }
+        Permissions::require($auth, 'firmware.read');
+        self::firmwareList();
+    }
+
+    private static function firmwareList(): never
     {
         $db = Database::get();
         $rows = $db->query('SELECT * FROM firmware_versions ORDER BY release_date DESC, version DESC')->fetchAll();
         Response::json($rows);
+    }
+
+    private static function firmwareUpload(): never
+    {
+        $file = $_FILES['file'] ?? null;
+        $version = trim($_POST['version'] ?? '');
+        $channel = $_POST['channel'] ?? 'stable';
+        $hardwareProfile = $_POST['hardware_profile'] ?? 'ESP32-GH-V1';
+
+        if ($version === '' || $file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            Response::error('Archivo (.bin) y versión requeridos', 400);
+        }
+        // Sanitizar el nombre de versión: solo [A-Za-z0-9._-].
+        if (!preg_match('/^[A-Za-z0-9._-]+$/', $version)) {
+            Response::error('Versión inválida (solo letras, números, . _ -)', 400);
+        }
+
+        $dir = __DIR__ . '/../public/firmware';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $filename = $version . '.bin';
+        $dest = $dir . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $dest)) {
+            Response::error('No se pudo guardar el firmware', 500);
+        }
+
+        $sha = strtoupper(hash_file('sha256', $dest));
+        $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $url = $scheme . '://' . $host . '/firmware/' . $filename;
+
+        $db = Database::get();
+        $st = $db->prepare(
+            'INSERT INTO firmware_versions
+                (project, channel, version, hardware_profile, url, sha256, release_date)
+             VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE)
+             ON CONFLICT (channel, version, hardware_profile) DO UPDATE
+                SET url = EXCLUDED.url, sha256 = EXCLUDED.sha256, release_date = CURRENT_DATE
+             RETURNING *'
+        );
+        $st->execute(['Invernadero', $channel, $version, $hardwareProfile, $url, $sha]);
+
+        Response::json($st->fetch(), 201);
     }
 
     private static function events(?string $deviceId): never

@@ -62,6 +62,26 @@
           <h2>Roles y permisos</h2>
           <div id="roles-list" class="roles"></div>
         </section>
+
+        <section id="view-firmware" class="view hidden">
+          <h2>Firmware (OTA)</h2>
+          <div class="toolbar">
+            <label class="lbl">Versión <input id="fw-version" type="text" placeholder="3.7.0"></label>
+            <label class="lbl">Archivo .bin <input id="fw-file" type="file" accept=".bin"></label>
+            <button id="fw-upload">Subir firmware</button>
+            <span id="fw-msg" class="meta"></span>
+          </div>
+          <h3>Versiones disponibles</h3>
+          <table class="table">
+            <thead><tr><th>Versión</th><th>Canal</th><th>Perfil</th><th>SHA-256</th><th>Fecha</th></tr></thead>
+            <tbody id="fw-list"></tbody>
+          </table>
+          <h3>Actualizar dispositivos</h3>
+          <table class="table">
+            <thead><tr><th>Dispositivo</th><th>FW actual</th><th>Actualizar a</th><th></th></tr></thead>
+            <tbody id="fw-devices"></tbody>
+          </table>
+        </section>
       </main>
     </div>
   </div>

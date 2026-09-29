@@ -5,3 +5,5 @@
 .vscode/
 *.log
 .DS_Store
+/public/firmware/*.bin
+!public/firmware/.gitkeep
