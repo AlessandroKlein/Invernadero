@@ -1821,6 +1821,39 @@ Ejemplo:
 
 Nunca depender de colores arbitrarios por componente.
 
+### Paleta estándar (slate + verde)
+
+Todos los proyectos deben usar esta paleta base. El acento es **verde**, los
+neutros son **slate** y los estados son **ámbar/rojo** (semánticos).
+
+```css
+/* Tema oscuro (por defecto) */
+--bg: #0f172a;      /* slate-900 */
+--panel: #1e293b;   /* slate-800 */
+--panel2: #334155;  /* slate-700 */
+--text: #e2e8f0;    /* slate-200 */
+--muted: #94a3b8;   /* slate-400 */
+--accent: #22c55e;  /* green-500 */
+--warn: #f59e0b;    /* amber-500 */
+--danger: #ef4444;  /* red-500 */
+```
+
+```css
+/* Tema claro */
+--bg: #f1f5f9;      /* slate-100 */
+--panel: #ffffff;
+--panel2: #e2e8f0;  /* slate-200 */
+--text: #0f172a;    /* slate-900 */
+--muted: #64748b;   /* slate-500 */
+--accent: #16a34a;  /* green-600 */
+--warn: #d97706;    /* amber-600 */
+--danger: #dc2626;  /* red-600 */
+```
+
+Los nombres de token (`--bg/--panel/--panel2/--text/--muted/--accent/--warn/--danger`)
+son el vocabulario común entre los tres frontends del proyecto Invernadero
+(preview, web local del ESP32 y dashboard del servidor).
+
 ---
 
 # 71. Estados
@@ -1852,6 +1885,18 @@ System
 ```
 
 cuando la aplicación lo requiera.
+
+### Implementación de referencia
+
+- Atributo `data-theme` en `<html>` con valores `dark` | `light`.
+- Un script inline **antes** del CSS fija el tema para evitar parpadeo (FOUC):
+
+```html
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('gh_theme')||'dark')}catch(e){}</script>
+```
+
+- Preferencia persistida en `localStorage` bajo la clave `gh_theme`.
+- El toggle alterna `data-theme` y persiste el valor; el ícono refleja el estado.
 
 ---
 
@@ -3525,6 +3570,36 @@ Core
 ```
 
 No necesariamente todos deben instalarse en todas las implementaciones.
+
+### Integración de datos externos por HTTP JSON (Weather Module)
+
+Cuando un proyecto consuma datos de una fuente externa que publica JSON (p. ej.
+una estación meteorológica), debe seguir este patrón:
+
+1. La fuente solo publica JSON en un URL; el proyecto/dispositivo realiza la petición.
+2. Los nombres de campo del JSON son configurables (cada fuente usa un esquema propio).
+3. Solo se extraen las magnitudes que interesan; el resto se ignora.
+4. La configuración es declarativa y permite un subobjeto raíz opcional (`root`).
+
+```json
+{
+  "weather": {
+    "enabled": true,
+    "url": "http://192.168.1.50/weather.json",
+    "interval_ms": 60000,
+    "root": "",
+    "key_temp": "temp",
+    "key_hum": "hum",
+    "key_wind": "ane",
+    "key_rain": "pluv",
+    "key_pressure": "pres",
+    "key_light": "lux"
+  }
+}
+```
+
+Regla: nunca hardcodear los nombres de campo; siempre exponerlos como
+configuración para que el mismo proyecto funcione con distintas fuentes.
 
 ---
 

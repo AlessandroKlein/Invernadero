@@ -295,6 +295,21 @@ struct SystemConfig {
   uint8_t rs485Parity = 0;     // 0=NONE, 1=EVEN, 2=ODD
   uint8_t rs485StopBits = 1;
 
+  // Estación meteorológica externa (secciones 244-246). El ESP32 consulta un URL
+  // que publica JSON y extrae solo las magnitudes configuradas. Los nombres de
+  // campo (temp, hum, ane, pluv, ...) son configurables porque cada estación
+  // publica un esquema propio y puede enviar más datos de los necesarios.
+  bool weatherEnabled = false;
+  char weatherUrl[128] = "";
+  uint32_t weatherIntervalMs = 60000;   // 1 minuto por defecto
+  char weatherRoot[24] = "";            // subobjeto raíz dentro del JSON (opcional)
+  char weatherKeyTemp[16] = "temp";
+  char weatherKeyHum[16] = "hum";
+  char weatherKeyWind[16] = "ane";
+  char weatherKeyRain[16] = "pluv";
+  char weatherKeyPressure[16] = "pres";
+  char weatherKeyLight[16] = "lux";
+
   // Sensores habilitados.
   bool sensorSht31 = true;
   bool sensorDs18b20 = true;

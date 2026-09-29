@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.6.0] - 2026-09-29
+
+### Added
+- Estación meteorológica externa: el ESP32 consulta un URL que publica JSON (HTTP/HTTPS).
+- Mapeo configurable de campos (`key_temp`, `key_hum`, `key_wind`, `key_rain`, `key_pressure`, `key_light`) y subobjeto raíz opcional (`root`).
+- Endpoint `GET /api/v1/weather` y publicación MQTT `greenhouse/{id}/weather`.
+
 ## [3.5.0] - 2026-09-28
 
 ### Added

@@ -39,6 +39,7 @@ void RestApi::setupRoutes() {
   server_.on("/", HTTP_GET, [this]() { handleRoot(); });
   server_.on("/api/v1/status", HTTP_GET, [this]() { handleStatus(); });
   server_.on("/api/v1/sensors", HTTP_GET, [this]() { handleSensors(); });
+  server_.on("/api/v1/weather", HTTP_GET, [this]() { handleWeather(); });
   server_.on("/api/v1/actuators", HTTP_GET, [this]() { handleActuators(); });
   server_.on("/api/v1/config", HTTP_GET, [this]() { handleConfigGet(); });
   server_.on("/api/v1/config", HTTP_PUT, [this]() { if (requireAuth()) handleConfigPut(); });
@@ -81,6 +82,11 @@ void RestApi::handleStatus() {
 
 void RestApi::handleSensors() {
   server_.send(200, "application/json", sensors_->toJson());
+}
+
+void RestApi::handleWeather() {
+  if (!weather_) { server_.send(404, "application/json", "{\"error\":\"weather no disponible\"}"); return; }
+  server_.send(200, "application/json", weather_->toJson());
 }
 
 void RestApi::handleActuators() {
@@ -468,6 +474,16 @@ String RestApi::buildStatusJson() {
   doc["light"] = sensors_->lightLux();
   doc["vpd"] = sensors_->vpd();
   doc["dewpoint"] = sensors_->dewPoint();
+  if (weather_ && weather_->available()) {
+    doc["weather"] = true;
+    doc["ext_temp"] = weather_->temperature();
+    doc["ext_hum"] = weather_->humidity();
+    doc["wind"] = weather_->windSpeed();
+    doc["rain"] = weather_->rain();
+    doc["pressure"] = weather_->pressure();
+  } else {
+    doc["weather"] = false;
+  }
   doc["pump"] = actuators_->isOn(ActuatorRole::PUMP, 0);
   doc["fan"] = actuators_->isOn(ActuatorRole::FAN, 0);
   String out; serializeJson(doc, out);

@@ -263,6 +263,19 @@ String ConfigManager::toJson(const SystemConfig& c) {
   net["rs485_parity"] = c.rs485Parity;
   net["rs485_stop"] = c.rs485StopBits;
 
+  // Estación meteorológica externa (secciones 244-246).
+  JsonObject w = doc.createNestedObject("weather");
+  w["enabled"] = c.weatherEnabled;
+  w["url"] = c.weatherUrl;
+  w["interval_ms"] = c.weatherIntervalMs;
+  w["root"] = c.weatherRoot;
+  w["key_temp"] = c.weatherKeyTemp;
+  w["key_hum"] = c.weatherKeyHum;
+  w["key_wind"] = c.weatherKeyWind;
+  w["key_rain"] = c.weatherKeyRain;
+  w["key_pressure"] = c.weatherKeyPressure;
+  w["key_light"] = c.weatherKeyLight;
+
   JsonObject s = doc.createNestedObject("sensors");
   s["sht31"] = c.sensorSht31;
   s["ds18b20"] = c.sensorDs18b20;
@@ -424,6 +437,19 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     out.rs485Baud = n["rs485_baud"] | out.rs485Baud;
     out.rs485Parity = n["rs485_parity"] | out.rs485Parity;
     out.rs485StopBits = n["rs485_stop"] | out.rs485StopBits;
+  }
+  if (doc["weather"].is<JsonObject>()) {
+    JsonObject w = doc["weather"];
+    out.weatherEnabled = w["enabled"] | out.weatherEnabled;
+    copyStr(w["url"], out.weatherUrl, sizeof(out.weatherUrl));
+    out.weatherIntervalMs = w["interval_ms"] | out.weatherIntervalMs;
+    copyStr(w["root"], out.weatherRoot, sizeof(out.weatherRoot));
+    copyStr(w["key_temp"], out.weatherKeyTemp, sizeof(out.weatherKeyTemp));
+    copyStr(w["key_hum"], out.weatherKeyHum, sizeof(out.weatherKeyHum));
+    copyStr(w["key_wind"], out.weatherKeyWind, sizeof(out.weatherKeyWind));
+    copyStr(w["key_rain"], out.weatherKeyRain, sizeof(out.weatherKeyRain));
+    copyStr(w["key_pressure"], out.weatherKeyPressure, sizeof(out.weatherKeyPressure));
+    copyStr(w["key_light"], out.weatherKeyLight, sizeof(out.weatherKeyLight));
   }
   if (doc["sensors"].is<JsonObject>()) {
     JsonObject s = doc["sensors"];

@@ -19,6 +19,7 @@ public:
   void publishSensors(const String& json);
   void publishStatus(const String& json);
   void publishActuators(const String& json);
+  void publishWeather(const String& json);
 
   // Callback de comandos (topic .../cmd).
   void onMessage(const char* topic, const uint8_t* payload, unsigned int len);

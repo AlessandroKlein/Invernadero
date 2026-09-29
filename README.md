@@ -2077,7 +2077,7 @@ GET /api/v1/events
 GET /api/v1/alarms
 ```
 
-### Endpoints implementados en el firmware actual (v3.4.0)
+### Endpoints implementados en el firmware actual (v3.6.0)
 
 La API REST local del ESP32 implementa, además de los listados, los siguientes
 endpoints reales (todos bajo `/api/v1/`):
@@ -2087,6 +2087,7 @@ GET    /device            → identidad + SoC/flash/PSRAM/MAC/temperatura intern
 GET    /capabilities      → lista de capacidades del dispositivo
 GET    /status            → resumen de sensores/actuadores/VPD/punto de rocío
 GET    /sensors           → lecturas tipadas con estado/calidad
+GET    /weather           → estación meteorológica externa (HTTP + JSON configurable)
 GET    /actuators         → estado de actuadores
 POST   /actuators         → control manual (requiere autenticación)
 GET    /config            → configuración actual
@@ -9095,6 +9096,36 @@ riego
 alarmas
 predicción
 ```
+
+### Implementación en el firmware (HTTP + JSON configurable)
+
+El ESP32 realiza la petición HTTP (la estación solo publica el JSON) y decide qué
+campos escucha. La configuración es:
+
+```json
+{
+  "weather": {
+    "enabled": true,
+    "url": "http://192.168.1.50/weather.json",
+    "interval_ms": 60000,
+    "root": "",
+    "key_temp": "temp",
+    "key_hum": "hum",
+    "key_wind": "ane",
+    "key_rain": "pluv",
+    "key_pressure": "pres",
+    "key_light": "lux"
+  }
+}
+```
+
+- `root` permite indicar un subobjeto dentro del JSON (p. ej. `"weather"`).
+- Los nombres de campo (`key_*`) son libres: cada estación publica su propio
+  esquema y el ESP32 solo lee los IDs que se le indiquen (`temp`, `hum`, `ane`,
+  `pluv`, `pres`, `lux`, ...).
+
+Endpoint local: `GET /api/v1/weather`. Los valores también se publican por MQTT
+en `greenhouse/{device_id}/weather` para el servidor central.
 
 ---
 

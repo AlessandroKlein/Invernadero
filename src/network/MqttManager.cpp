@@ -53,6 +53,10 @@ void MqttManager::publishActuators(const String& json) {
   if (connected()) mqtt_.publish((baseTopic_ + "/actuators").c_str(), json.c_str());
 }
 
+void MqttManager::publishWeather(const String& json) {
+  if (connected()) mqtt_.publish((baseTopic_ + "/weather").c_str(), json.c_str());
+}
+
 void MqttManager::onMessage(const char* topic, const uint8_t* payload, unsigned int len) {
   // El procesamiento de comandos se delega a la API/control (se reenvía el texto).
   char buf[128];

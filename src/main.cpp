@@ -27,6 +27,7 @@
 
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
+#include "network/WeatherStation.hpp"
 
 #include "api/RestApi.hpp"
 #include "api/WebSocketServer.hpp"
@@ -54,6 +55,7 @@ struct App {
   RuleEngine rules;
   NetworkManager network;
   MqttManager mqtt;
+  WeatherStation weather;
   RestApi api;
   WebSocketServer ws;
   Watchdog watchdog;
@@ -120,10 +122,12 @@ void setup() {
   // 6) Red, MQTT, API, WebSocket, OTA, Watchdog.
   app.network.begin(app.config.get());
   Device::setState(DeviceState::NETWORK);
+  app.weather.begin(app.config.get());
   app.mqtt.begin(app.config.get());
   app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history,
                 &app.network, &app.mqtt);
   app.api.setRuleEngine(&app.rules);
+  app.api.setWeather(&app.weather);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);
@@ -138,6 +142,7 @@ void setup() {
 
 void loop() {
   app.network.loop();
+  app.weather.loop();
   app.mqtt.loop();
   app.api.loop();
   app.ws.loop();
@@ -151,6 +156,7 @@ void loop() {
     if (app.mqtt.connected()) {
       app.mqtt.publishSensors(app.sensors.toJson());
       app.mqtt.publishActuators(app.actuators.toJson());
+      if (app.weather.enabled()) app.mqtt.publishWeather(app.weather.toJson());
     }
   }
   delay(10);

@@ -11,6 +11,7 @@
 #include "storage/History.hpp"
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
+#include "network/WeatherStation.hpp"
 #include "control/RuleEngine.hpp"
 
 namespace gh {
@@ -21,6 +22,7 @@ public:
              NetworkManager* net = nullptr, MqttManager* mqtt = nullptr);
   void loop() { server_.handleClient(); }
   void setRuleEngine(RuleEngine* r) { rules_ = r; }
+  void setWeather(WeatherStation* w) { weather_ = w; }
 private:
   WebServer server_{80};
   ConfigManager* cfg_ = nullptr;
@@ -30,6 +32,7 @@ private:
   NetworkManager* network_ = nullptr;
   MqttManager* mqtt_ = nullptr;
   RuleEngine* rules_ = nullptr;
+  WeatherStation* weather_ = nullptr;
 
   // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
   char sessionToken_[40] = "";
@@ -39,6 +42,7 @@ private:
   void handleRoot();
   void handleStatus();
   void handleSensors();
+  void handleWeather();
   void handleActuators();
   void handleConfigGet();
   void handleConfigPut();
