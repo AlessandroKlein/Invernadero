@@ -53,7 +53,8 @@ docker compose exec php php mqtt/worker.php
 ```
 
 Se suscribe a `greenhouse/+/#` y escribe en PostgreSQL (estado, sensores,
-actuadores, eventos, alarmas).
+actuadores, eventos, alarmas y **estación meteorológica** — `.../weather`, que se
+guarda en `device_shadow.reported.weather`).
 
 ## Estructura
 

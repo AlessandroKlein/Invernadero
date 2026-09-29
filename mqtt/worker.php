@@ -146,6 +146,18 @@ function insertAlarm(PDO $db, string $devUuid, array $p): void
     ]);
 }
 
+function ingestWeather(PDO $db, string $devUuid, array $p): void
+{
+    // El ESP32 consulta una estación meteorológica externa y publica el resultado
+    // en greenhouse/{device_id}/weather. Se guarda en el shadow.reported.weather.
+    $db->prepare(
+        'INSERT INTO device_shadow (device_id, reported) VALUES (?, ?)
+         ON CONFLICT (device_id) DO UPDATE
+         SET reported = jsonb_set(device_shadow.reported, \'{weather}\', EXCLUDED.reported->\'weather\', true),
+             updated_at = now()'
+    )->execute([$devUuid, json_encode(['weather' => $p])]);
+}
+
 function handleMessage(PDO $db, string $topic, string $message): void
 {
     $parts = explode('/', $topic);
@@ -161,6 +173,7 @@ function handleMessage(PDO $db, string $topic, string $message): void
         case 'state':     updateState($db, $devUuid, $payload); break;
         case 'sensors':   ingestSensors($db, $devUuid, $payload); break;
         case 'actuators': ingestActuators($db, $devUuid, $payload); break;
+        case 'weather':   ingestWeather($db, $devUuid, $payload); break;
         case 'events':    insertEvent($db, $devUuid, $payload); break;
         case 'alarms':    insertAlarm($db, $devUuid, $payload); break;
     }
