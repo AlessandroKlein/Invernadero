@@ -2,6 +2,7 @@
 // Punto de entrada: inicializa todos los módulos y lanza la tarea de automatización.
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -148,6 +149,20 @@ void loop() {
   app.ws.loop();
   app.ota.loop();
   app.watchdog.feed();
+
+  // Procesar comandos MQTT (p. ej. OTA remota desde el servidor central).
+  String cmd;
+  if (app.mqtt.consumeCommand(cmd)) {
+    DynamicJsonDocument cdoc(1024);
+    if (deserializeJson(cdoc, cmd) == DeserializationError::Ok) {
+      String type = cdoc["type"] | "";
+      if (type == "ota") {
+        String url = cdoc["url"] | "";
+        String sha = cdoc["sha256"] | "";
+        if (url.length()) app.ota.applyFromUrl(url, sha);
+      }
+    }
+  }
 
   // Publicar estado por MQTT cada 10 s (si hay servidor central).
   static uint32_t lastMqtt = 0;

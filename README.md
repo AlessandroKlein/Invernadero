@@ -5639,6 +5639,16 @@ y realizar:
 ACTUALIZAR SELECCIONADOS
 ```
 
+### Implementado en el firmware y servidor actual
+
+- El dashboard central (vista **Firmware**) sube un `.bin` (`POST /api/v1/firmware/upload`)
+  y dispara la actualización (`POST /api/v1/devices/{id}/ota`).
+- El servidor publica en MQTT `greenhouse/{id}/cmd`:
+  `{"type":"ota","version":"...","url":"...","sha256":"..."}`.
+- El ESP32 (`OtaManager::applyFromUrl`) descarga el binario, **verifica SHA-256** y lo
+  instala en la partición OTA inactiva. NVS (config) y SPIFFS (datos) se preservan.
+- Si el nuevo firmware no arranca, el bootloader revierte (sección 146).
+
 ---
 
 # 145. Actualización por grupos

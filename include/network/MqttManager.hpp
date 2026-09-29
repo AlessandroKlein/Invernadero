@@ -24,12 +24,17 @@ public:
   // Callback de comandos (topic .../cmd).
   void onMessage(const char* topic, const uint8_t* payload, unsigned int len);
 
+  // Consume el último comando recibido (se limpia tras leerlo). Usado por el
+  // loop principal para disparar acciones como OTA desde el servidor central.
+  bool consumeCommand(String& out);
+
 private:
   WiFiClient client_;
   PubSubClient mqtt_{client_};
   bool enabled_ = false;
   String baseTopic_ = "greenhouse/GH001";
   SystemConfig cfg_;
+  String pendingCmd_;
 
   void reconnect();
 };

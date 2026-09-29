@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.7.0] - 2026-09-29
+
+### Added
+- OTA remota desde el servidor central: descarga del `.bin` por HTTP/HTTPS con verificación SHA-256 e instalación en la partición OTA inactiva (rollback automático).
+- Procesamiento de comandos MQTT (`greenhouse/{id}/cmd`) para disparar la actualización.
+- La configuración (NVS) y los datos (SPIFFS) se preservan entre actualizaciones.
+
 ## [3.6.0] - 2026-09-29
 
 ### Added

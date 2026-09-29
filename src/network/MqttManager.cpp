@@ -58,12 +58,16 @@ void MqttManager::publishWeather(const String& json) {
 }
 
 void MqttManager::onMessage(const char* topic, const uint8_t* payload, unsigned int len) {
-  // El procesamiento de comandos se delega a la API/control (se reenvía el texto).
-  char buf[128];
-  unsigned int n = len < sizeof(buf) - 1 ? len : sizeof(buf) - 1;
-  memcpy(buf, payload, n);
-  buf[n] = '\0';
-  Serial.printf("[MQTT] cmd: %s\n", buf);
+  // El procesamiento de comandos se delega al loop principal vía consumeCommand().
+  pendingCmd_ = String((const char*)payload).substring(0, len);
+  Serial.printf("[MQTT] cmd: %s\n", pendingCmd_.c_str());
+}
+
+bool MqttManager::consumeCommand(String& out) {
+  if (pendingCmd_.length() == 0) return false;
+  out = pendingCmd_;
+  pendingCmd_ = "";
+  return true;
 }
 
 } // namespace gh
