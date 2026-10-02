@@ -320,3 +320,188 @@ mkdocs new .                     # genera mkdocs.yml + docs/
 - [ ] `Glosario` en lenguaje simple.
 - [ ] `Evolucion` con estado actual (✅/❌).
 - [ ] Publicada (GitHub wiki o MkDocs/Docusaurus) y actualizada en cada commit.
+
+---
+
+## 10. Principios (aplican a todo)
+
+1. **Documentar hasta el detalle más pequeño.** Si alguien puede preguntarse
+   "¿y esto?", debe estar en la wiki. No existe "es obvio".
+2. **Verificar contra el código, nunca inventar.** Cada default, pin, endpoint o
+   enum se lee del fuente real antes de escribirlo.
+3. **Explicar el por qué, no solo el qué.** Una tabla dice *qué*; una frase dice
+   *por qué*.
+4. **Una página = una pregunta.** Si responde a dos, conviene dividirla.
+5. **Todo bloqueo se documenta.** Las limitaciones valen tanto como lo que funciona.
+6. **Documentación viva.** Se actualiza en el mismo commit que el código.
+
+---
+
+## 11. Anatomía obligatoria de una página
+
+```markdown
+---
+tags:
+  - <proyecto>
+  - <temática>
+---
+
+# Título
+
+> **Tipo:** Guía | Referencia | Concepto | API | Configuración | Soporte | Roadmap | Convención
+> **Estado:** Estable | En desarrollo | Especificación | Obsoleto
+> **Fecha:** YYYY-MM-DD
+
+## 1. Sección numerada
+…
+
+## 2. …
+Ver también: [Página A](A.md) · [Página B](B.md).
+```
+
+- **Frontmatter**: primer tag = proyecto; los siguientes, temáticas.
+- **Secciones numeradas** (`## 1.`) para poder citarlas ("ver §10").
+- **Cierre con enlaces** a páginas relacionadas.
+
+---
+
+## 12. Tipos de página
+
+| Tipo | Para qué | Elemento clave |
+|------|----------|----------------|
+| **Guía** | Cómo hacer X paso a paso | Pasos numerados, una acción cada uno |
+| **Referencia** | Todas las X | Tabla exhaustiva (sin "etc.") |
+| **Concepto** | Cómo funciona X | Diagrama + fórmula + cuándo **no** usarlo |
+| **Soporte** | Resolver problemas | El comando/endpoint que confirma |
+| **Roadmap** | Estado del proyecto | ✅ / ⚠️ / ❌ + versión |
+| **Convención** | Normas de trabajo | Reglas accionables |
+
+---
+
+## 13. Contenido obligatorio por área
+
+### 13.1 Referencia de pines
+
+Columnas: **clave JSON · default · función · dirección · notas**. Además:
+restricciones del MCU (solo-entrada, *strapping*, conflictos de ADC) y
+**conflictos entre valores por defecto**.
+
+### 13.2 Referencia de API interna
+
+Tabla **`método` → descripción** por clase, con la firma real:
+
+```markdown
+| `void begin(cfg, pins, SensorRegistry*)` | Inicializa buses y drivers |
+```
+
+### 13.3 Enumeraciones y tipos
+
+Tabla **valor → código numérico → significado**, incluyendo `NONE`/`UNKNOWN`.
+
+### 13.4 Referencia de código
+
+Mapa **módulo → archivos → responsabilidad → líneas**. Incluir árbol del repo,
+flujo de arranque, tareas y puntos de extensión.
+
+### 13.5 Endpoints / API
+
+Agrupados por área, con método, ruta, descripción y **si requiere autenticación**.
+Añadir ejemplos de los casos importantes.
+
+### 13.6 Configuración
+
+Toda clave con: **clave · tipo · default · descripción**, agrupada por sección.
+
+### 13.7 Métricas
+
+LOC por módulo, uso de flash/RAM, cantidad de endpoints, límites del sistema.
+
+---
+
+## 14. Diagramas (Mermaid)
+
+| Tipo | Cuándo usarlo |
+|------|---------------|
+| `flowchart` | Arquitectura, flujo de datos, lazo de control |
+| `sequenceDiagram` | Diálogo entre componentes |
+| `stateDiagram-v2` | Máquinas de estado |
+
+Reglas: nodos con los **nombres reales del código**; un diagrama = una idea.
+
+---
+
+## 15. Nomenclatura de archivos
+
+| Regla | Ejemplo |
+|-------|---------|
+| PascalCase con guiones | `Referencia-API-interna.md` |
+| Sin espacios ni acentos | `Guia-de-pines.md` |
+| Nombre = tema de la página | `Versionado.md` |
+
+---
+
+## 16. Multi-idioma y publicación
+
+- Contenido en `docs/es/` (default) y `docs/en/`; al traducir, **misma ruta y nombre**.
+- `fallback_to_default: true` (lo no traducido muestra el español).
+- **No** usar `navigation.instant` (rompe el selector de idioma).
+- Verificar **siempre** con build local: `python -m mkdocs build` → SUCCESS.
+
+```text
+push a main → workflow deploy.yml → mkdocs build → rama gh-pages → GitHub Pages
+```
+
+---
+
+## 17. Errores a evitar
+
+| Error | Por qué |
+|-------|---------|
+| Inventar APIs, pines o defaults | Produce fallos reales al seguirlos |
+| Escribir "etc." en una tabla de referencia | Esconde justo lo que se busca |
+| Redondear números sin el dato exacto | No permite verificar |
+| Documentar solo lo que funciona | Los bloqueos son igual de importantes |
+| No citar la versión | En 3 releases el dato ya no aplica |
+| Duplicar contenido | Se desincroniza; mejor linkear |
+| Páginas huérfanas (fuera del `nav`) | Nadie las encuentra |
+
+---
+
+## 18. Qué documentar siempre (lista mínima)
+
+1. **Identidad** · 2. **Inicio rápido** · 3. **Arquitectura** + diagramas ·
+4. **Hardware** (compatibilidad, pines, fichas, BOM) · 5. **Configuración** ·
+6. **API** · 7. **Conceptos** (algoritmos) · 8. **Operación** (OTA, seguridad,
+estados) · 9. **Soporte** (problemas + FAQ) · 10. **Proyecto** (ADR, evolución,
+mejoras, CHANGELOG, registro por archivo, glosario, métricas) ·
+11. **Convenciones** (reglas, versionado, este estándar).
+
+---
+
+## 19. Estructura recomendada de la wiki
+
+```text
+Inicio (índice del proyecto)
+├── Empezar     → Inicio rápido · Arquitectura · Diagramas · Compilación
+├── Referencia  → Código · API interna · Enumeraciones · Configuración (JSON)
+├── Hardware    → Compatibilidad · Pines · Conexiones · Materiales
+├── Uso         → Sensores · Actuadores · Conceptos · Configuración
+├── Operación   → API REST · MQTT · OTA · Seguridad · Estados
+├── Soporte     → Solución de problemas · FAQ · Glosario
+└── Proyecto    → Decisiones · Evolución · Mejoras · CHANGELOG · Registro
+```
+
+---
+
+## 20. Checklist de publicación
+
+- [ ] Frontmatter con tags.
+- [ ] Cabecera (Tipo / Estado / Fecha).
+- [ ] Secciones numeradas.
+- [ ] Datos verificados contra el código.
+- [ ] Tablas completas.
+- [ ] Enlaces internos que resuelven.
+- [ ] `mkdocs build` en SUCCESS.
+- [ ] `nav` actualizado si hay página nueva.
+- [ ] Referencia cruzada al final.
+- [ ] Wiki del proyecto + repo Docs sincronizados.
