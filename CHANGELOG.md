@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.24.0] - 2026-10-02
+
+### Added
+- Catálogo de expansores/nodos editable y persistido (paso 3, primer incremento):
+  `HardwareManager` carga/guarda en NVS (`ghhw`) y se edita por
+  `PUT /api/v1/hardware` (protegido) — `enabled`, `address` y `bus_index` por nodo.
+
 ## [3.23.0] - 2026-10-02
 
 ### Changed
