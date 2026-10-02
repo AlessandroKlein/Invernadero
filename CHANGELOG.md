@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.21.0] - 2026-10-02
+
+### Changed
+- `SensorManager` ahora lee las direcciones I²C de SHT31, AHT20, ADS1115, BH1750
+  y SCD41 **del catálogo instanciable** (`SensorRegistry`, editable por
+  `PUT /api/v1/sensors/catalog`) en lugar de los defaults del `PinConfig`.
+
 ## [3.20.0] - 2026-10-02
 
 ### Added
