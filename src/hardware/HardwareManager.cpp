@@ -2,12 +2,10 @@
 
 #include <ArduinoJson.h>
 
-#include "core/PinMap.hpp"
-
 namespace gh {
 
-void HardwareManager::begin() {
-  buses_.begin();
+void HardwareManager::begin(const PinConfig& pins) {
+  buses_.begin(pins);
 
   // Nodos estáticos del PCB de referencia. El catálogo puede ampliarse por
   // configuración (expansores/ADC/SD/W5500 adicionales en V8.1).
@@ -28,7 +26,7 @@ void HardwareManager::begin() {
   n.kind = HardwareKind::MCP23017;
   n.bus = BusType::I2C;
   n.busIndex = 0;
-  n.address = pins::I2C_ADDR_MCP23017_1;
+  n.address = pins.i2cAddrMcp23017;
   n.enabled = true;
   strncpy(n.owner, "actuators", sizeof(n.owner) - 1);
   registerNode(n);

@@ -85,6 +85,8 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/storage", HTTP_GET, [this]() { handleStorage(); });
   server_.on("/api/v1/modbus/profiles", HTTP_GET, [this]() { handleModbusProfiles(); });
   server_.on("/api/v1/modbus/gateway", HTTP_GET, [this]() { handleModbusGateway(); });
+  server_.on("/api/v1/pins", HTTP_GET, [this]() { handlePinsApi(); });
+  server_.on("/api/v1/pins", HTTP_PUT, [this]() { handlePinsApi(); });
   server_.on("/api/v1/logs", HTTP_GET, [this]() { handleLogs(); });
   server_.on("/api/v1/detect", HTTP_GET, [this]() { handleDetect(); });
 }
@@ -167,6 +169,23 @@ void RestApi::handleModbusProfiles() {
 
 void RestApi::handleModbusGateway() {
   server_.send(200, "application/json", modbusGateway_ ? modbusGateway_->toJson() : "[]");
+}
+
+void RestApi::handlePinsApi() {
+  if (!pinConfigMgr_) { server_.send(503, "application/json", "{\"error\":\"unavailable\"}"); return; }
+  if (server_.method() == HTTP_GET) {
+    server_.send(200, "application/json", pinConfigToJson(pinConfigMgr_->get()));
+    return;
+  }
+  // PUT: protegido (requiere sesión de administrador o token de API).
+  if (!requireAuth()) return;
+  PinConfig p = pinConfigMgr_->get();
+  if (!pinConfigFromJson(server_.arg("plain"), p)) {
+    server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+    return;
+  }
+  pinConfigMgr_->set(p);
+  server_.send(200, "application/json", "{\"ok\":true,\"restart\":true}");
 }
 
 void RestApi::handleLogs() {

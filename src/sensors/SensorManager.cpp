@@ -2,7 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <math.h>
-#include "core/PinMap.hpp"
+#include "core/PinConfig.hpp"
 
 namespace gh {
 
@@ -15,39 +15,40 @@ enum Slot : uint8_t {
   S_RAIN = 16, S_WIND = 17, S_PH = 18, S_EC = 19
 };
 
-void SensorManager::begin(const SystemConfig& cfg) {
+void SensorManager::begin(const SystemConfig& cfg, const PinConfig& pins) {
   cfg_ = cfg;
+  pins_ = pins;
   if (mutex_ == nullptr) mutex_ = xSemaphoreCreateMutex();
 
   // Inicializar bus I²C principal.
-  Wire.begin(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_FREQ);
+  Wire.begin(pins_.i2cSda, pins_.i2cScl, pins_.i2cFreq);
 
   // Sensores I²C.
-  sht31_.begin(TempHumSensor::Kind::SHT31, pins::I2C_ADDR_SHT31, &Wire);
-  exterior_.begin(TempHumSensor::Kind::AHT20, pins::I2C_ADDR_AHT20, &Wire);
-  ads_.begin(pins::I2C_ADDR_ADS1115, &Wire);
-  light_.begin(pins::I2C_ADDR_BH1750, &Wire);
+  sht31_.begin(TempHumSensor::Kind::SHT31, pins_.i2cAddrSht31, &Wire);
+  exterior_.begin(TempHumSensor::Kind::AHT20, pins_.i2cAddrAht20, &Wire);
+  ads_.begin(pins_.i2cAddrAds1115, &Wire);
+  light_.begin(pins_.i2cAddrBh1750, &Wire);
 
   // CO₂ (opcional): iniciar medición periódica si el chip responde.
-  co2_.begin(pins::I2C_ADDR_SCD41, &Wire);
+  co2_.begin(pins_.i2cAddrScd41, &Wire);
 
   // DS18B20 en bus 1-Wire.
-  ds18b20_.begin(pins::ONEWIRE_PIN);
+  ds18b20_.begin(pins_.oneWire);
 
   // Entradas de pulsos (caudal, lluvia, viento).
-  flow_.begin(pins::FLOW_PIN, cfg_.flowLitersPerPulse, true);
-  rain_.begin(pins::RAIN_PIN, cfg_.rainMmPerPulse, true);
-  wind_.begin(pins::WIND_PIN, cfg_.windKmhPerPulse, true);
+  flow_.begin(pins_.flowPin, cfg_.flowLitersPerPulse, true);
+  rain_.begin(pins_.rainPin, cfg_.rainMmPerPulse, true);
+  wind_.begin(pins_.windPin, cfg_.windKmhPerPulse, true);
 
   // Nivel de tanque (ultrasónico) y flotadores de seguridad.
-  tank_.begin(pins::TANK_TRIG, pins::TANK_ECHO, cfg_.tankDepthCm);
-  pinMode(pins::FLOAT_LOW_PIN, INPUT_PULLUP);
-  pinMode(pins::FLOAT_HIGH_PIN, INPUT_PULLUP);
+  tank_.begin(pins_.tankTrig, pins_.tankEcho, cfg_.tankDepthCm);
+  pinMode(pins_.floatLow, INPUT_PULLUP);
+  pinMode(pins_.floatHigh, INPUT_PULLUP);
 
   // RS485 / Modbus RTU para pH y EC industriales.
   rs485_ = &Serial1;
-  rs485_->begin(9600, SERIAL_8N1, pins::RS485_RX, pins::RS485_TX);
-  modbus_.begin(rs485_, pins::RS485_DE, 9600);
+  rs485_->begin(9600, SERIAL_8N1, pins_.rs485Rx, pins_.rs485Tx);
+  modbus_.begin(rs485_, pins_.rs485De, 9600);
 
   // Sensores de química.
   ph_.setCalibration(cfg_.ph4Voltage, cfg_.ph7Voltage, cfg_.ph10Voltage);
@@ -67,7 +68,7 @@ void SensorManager::reconfigure(const SystemConfig& cfg) {
   cfg_ = cfg;
   // Recalibrar pH y tanque.
   ph_.setCalibration(cfg_.ph4Voltage, cfg_.ph7Voltage, cfg_.ph10Voltage);
-  tank_.begin(pins::TANK_TRIG, pins::TANK_ECHO, cfg_.tankDepthCm);
+  tank_.begin(pins_.tankTrig, pins_.tankEcho, cfg_.tankDepthCm);
   // Actualizar habilitados en los slots.
   for (uint8_t i = 0; i < MAX_SENSORS; i++) values_[i].enabled = false;
 }
@@ -114,8 +115,8 @@ float SensorManager::co2() const { return valueAt(S_CO2); }
 float SensorManager::flowRate() const { return valueAt(S_FLOW); }
 float SensorManager::flowAccumulated() const { return flow_.accumulated(); }
 float SensorManager::tankLevel() const { return valueAt(S_TANK); }
-bool SensorManager::floatLow() const { return digitalRead(pins::FLOAT_LOW_PIN) == LOW; }
-bool SensorManager::floatHigh() const { return digitalRead(pins::FLOAT_HIGH_PIN) == LOW; }
+bool SensorManager::floatLow() const { return digitalRead(pins_.floatLow) == LOW; }
+bool SensorManager::floatHigh() const { return digitalRead(pins_.floatHigh) == LOW; }
 float SensorManager::rainAccum() const { return valueAt(S_RAIN); }
 float SensorManager::windSpeed() const { return valueAt(S_WIND); }
 float SensorManager::ph() const { return valueAt(S_PH); }

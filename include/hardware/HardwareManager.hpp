@@ -7,6 +7,7 @@
 #include <Arduino.h>
 
 #include "core/PlatformTypes.hpp"
+#include "core/PinConfig.hpp"
 #include "hardware/BusManager.hpp"
 
 namespace gh {
@@ -16,7 +17,7 @@ public:
   static constexpr uint8_t MAX_NODES = 24;
 
   // Inicializa los buses y registra los nodos estáticos del PCB de referencia.
-  void begin();
+  void begin(const PinConfig& pins);
 
   BusManager& buses() { return buses_; }
   const BusManager& buses() const { return buses_; }

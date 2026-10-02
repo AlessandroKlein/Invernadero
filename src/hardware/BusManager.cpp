@@ -2,13 +2,11 @@
 
 #include <ArduinoJson.h>
 
-#include "core/PinMap.hpp"
-
 namespace gh {
 
-void BusManager::begin() {
+void BusManager::begin(const PinConfig& pins) {
   // Única inicialización del bus I²C compartido (SHT31/AHT20/ADS1115/MCP23017).
-  Wire.begin(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_FREQ);
+  Wire.begin(pins.i2cSda, pins.i2cScl, pins.i2cFreq);
   registerBus(BusType::I2C, 0, true);
   // SPI (bit-banged por el 74HC595 hoy; periférico SPI para W5500/SD/MCP23S17 en V8.1).
   registerBus(BusType::SPI, 0, true);

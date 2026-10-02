@@ -7,7 +7,7 @@
 #include <freertos/task.h>
 
 #include "core/Types.hpp"
-#include "core/PinMap.hpp"
+#include "core/PinConfig.hpp"
 #include "core/Version.hpp"
 #include "core/PlatformTypes.hpp"
 #include "core/CapabilityRegistry.hpp"
@@ -67,6 +67,8 @@ struct App {
   ActuatorRegistry actuatorRegistry;
   ModbusProfileRegistry modbusProfiles;
   ModbusGateway modbusGateway;
+  PinConfigManager pinConfigMgr;
+  PinConfig pinConfig;
   StorageManager storage;
   ShiftRegister595 shift;
   Mcp23017 mcp;
@@ -205,17 +207,19 @@ void setup() {
                   app.modbusProfiles.profileCount());
   }
 
-  // 3) Hardware de salida: 74HC595 (SPI) + MCP23017 (I²C).
-  app.shift.begin(pins::HC595_MOSI, pins::HC595_SCLK, pins::HC595_LATCH, pins::HC595_COUNT);
+  // 3) Hardware de salida: 74HC595 (SPI) + MCP23017 (I²C), con pines de NVS.
+  app.pinConfigMgr.begin();
+  app.pinConfig = app.pinConfigMgr.get();
+  app.shift.begin(app.pinConfig.hc595Mosi, app.pinConfig.hc595Sclk, app.pinConfig.hc595Latch, app.pinConfig.hc595Count);
   app.shift.allOff(); // estado seguro al arrancar (sección 21.14)
   // Soft-PWM deshabilitado por defecto (modo digital ON/OFF seguro). Para PWM
   // de alta frecuencia se recomienda LEDC en GPIO o controlador dedicado.
   // app.shift.setPwmEnabled(true, 200, 8);
-  app.hardware.begin(); // inicia los buses (I²C) y registra los nodos de hardware
-  app.mcp.begin(pins::I2C_ADDR_MCP23017_1, &Wire);
+  app.hardware.begin(app.pinConfig); // inicia los buses (I²C) y registra los nodos de hardware
+  app.mcp.begin(app.pinConfig.i2cAddrMcp23017, &Wire);
 
   // 4) Sensores y actuadores.
-  app.sensors.begin(app.config.get());
+  app.sensors.begin(app.config.get(), app.pinConfig);
   app.actuators.begin(app.config.get(), &app.shift, &app.mcp);
   app.actuators.allSafeState();
   Device::setState(DeviceState::SELF_TEST);
@@ -247,6 +251,7 @@ void setup() {
   app.api.setStorage(&app.storage);
   app.api.setModbusProfiles(&app.modbusProfiles);
   app.api.setModbusGateway(&app.modbusGateway);
+  app.api.setPinConfigManager(&app.pinConfigMgr);
   app.api.setLogger(&app.logger);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);

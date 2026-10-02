@@ -10,6 +10,7 @@
 #include <freertos/semphr.h>
 
 #include "core/Types.hpp"
+#include "core/PinConfig.hpp"
 #include "control/CalculatedVariables.hpp"
 #include "sensors/TempHumSensor.hpp"
 #include "sensors/Ds18b20Sensor.hpp"
@@ -29,7 +30,7 @@ public:
   static constexpr uint8_t MAX_SENSORS = 20;
   static constexpr uint8_t MAX_SOIL_ZONES = 4;
 
-  void begin(const SystemConfig& cfg);
+  void begin(const SystemConfig& cfg, const PinConfig& pins);
   void reconfigure(const SystemConfig& cfg); // Actualiza habilitados/calibración
   void update();                             // Lee todos los sensores habilitados
 
@@ -98,6 +99,7 @@ private:
   // Valores en tiempo de ejecución.
   SensorValue values_[MAX_SENSORS];
   SystemConfig cfg_;
+  PinConfig pins_;
   mutable SemaphoreHandle_t mutex_ = nullptr;
   uint32_t lastDs18Request_ = 0;
   bool ds18Pending_ = false;

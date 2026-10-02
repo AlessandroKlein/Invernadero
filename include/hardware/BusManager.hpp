@@ -7,6 +7,7 @@
 #include <Wire.h>
 
 #include "core/PlatformTypes.hpp"
+#include "core/PinConfig.hpp"
 
 namespace gh {
 
@@ -15,7 +16,7 @@ public:
   static constexpr uint8_t MAX_BUSES = 12;
 
   // Inicializa el bus I²C por defecto y registra los buses conocidos del PCB.
-  void begin();
+  void begin(const PinConfig& pins);
 
   // Registra/configura un bus. Devuelve false si el tipo es inválido o no hay slots.
   bool registerBus(BusType type, uint8_t index, bool enabled = true);
