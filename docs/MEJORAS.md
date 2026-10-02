@@ -193,3 +193,49 @@ W5500 (librería clásica `arduino-libraries/Ethernet`) deriva de `Client`, no d
    `HTTPClient`, habilitando HTTP y OTA (y TLS vía `WiFiClientSecure`/mbedTLS).
 
 Se deja registrado para atacarlo cuando se defina el hardware de red definitivo.
+
+## 11. Gateway RS485 (polling multi-esclavo por perfiles) — pendiente
+
+Objetivo: que el ESP32 actúe como **gateway RS485/Modbus**, sondeando múltiples
+esclavos según los perfiles declarados en `ModbusProfileRegistry` (ya existente),
+con intervalos configurables por dispositivo.
+
+### Diseño propuesto
+
+```text
+ModbusGateway
+    │
+    ├── poll(slave_id, register, data_type, scale, offset)
+    │        └── ModbusRtu (driver físico, ya implementado)
+    │
+    ├── tabla de esclavos (de ModbusProfileRegistry.instances)
+    │        ├── slave 1 → pH (perfil ph-generic)
+    │        ├── slave 2 → EC (perfil ec-generic)
+    │        └── slave N → ...
+    │
+    └── publica valores en SensorManager / MQTT
+```
+
+### Responsabilidades
+
+1. **Tabla de polling**: por instancia, `slave_id`, `register`, `poll_interval_ms`,
+   timeout y reintentos.
+2. **Conversión**: aplicar `scale`/`offset`/`data_type` del perfil al valor crudo.
+3. **Estado**: por esclavo, `OK / TIMEOUT / CRC_ERROR / DISCONNECTED`.
+4. **Integración**: volcar los valores en `SensorManager` (magnitudes) y publicar
+   por MQTT; exponer `/api/v1/modbus/status`.
+
+### Pendiente
+
+- Implementar `ModbusGateway` (o `src/sensors/ModbusGateway.*`) que use
+  `ModbusRtu` + `ModbusProfileRegistry` en tiempo de ejecución.
+- Scheduler: registrar un tick de polling por gateway en el `Scheduler` por
+  capacidades (ya existente).
+
+## 12. Estado de MEJORAS (resumen)
+
+| Ítem | Estado |
+|------|--------|
+| Gateway RS485 (polling multi-esclavo por perfiles) | ❌ pendiente (ver §11) |
+| HTTP/OTA sobre Ethernet | ⚠️ bloqueado (ver §10) |
+| Resto | ✅ implementado |
