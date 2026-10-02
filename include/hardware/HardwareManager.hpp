@@ -31,6 +31,8 @@ public:
   uint8_t scanI2c(uint8_t* found, uint8_t maxFound) {
     return buses_.scanI2c(found, maxFound);
   }
+  // Autodetección guiada (SEMA §210): escanea I²C y mapea direcciones a tipos.
+  String detectI2cJson();
 
   void snapshot(HardwareNode* out, size_t max, size_t& n) const;
   String toJson() const;

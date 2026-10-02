@@ -60,6 +60,32 @@ bool HardwareManager::getNode(const char* id, HardwareNode& out) const {
   return true;
 }
 
+// Mapea una dirección I²C detectada a un tipo de dispositivo conocido.
+static const char* i2cKindFor(uint8_t addr) {
+  if (addr == 0x44) return "SHT31";
+  if (addr == 0x38) return "AHT20";
+  if (addr >= 0x48 && addr <= 0x4B) return "ADS1115";
+  if (addr == 0x23) return "BH1750";
+  if (addr == 0x62) return "SCD40/SCD41";
+  if (addr >= 0x20 && addr <= 0x27) return "MCP23017";
+  return "Desconocido";
+}
+
+String HardwareManager::detectI2cJson() {
+  uint8_t addrs[128];
+  uint8_t n = buses_.scanI2c(addrs, 128);
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.to<JsonArray>();
+  for (uint8_t i = 0; i < n; i++) {
+    JsonObject o = arr.createNestedObject();
+    o["address"] = addrs[i];
+    o["type"] = i2cKindFor(addrs[i]);
+  }
+  String out;
+  serializeJson(doc, out);
+  return out;
+}
+
 void HardwareManager::snapshot(HardwareNode* out, size_t max, size_t& n) const {
   n = 0;
   for (uint8_t i = 0; i < nodeCount_ && n < max; i++) out[n++] = nodes_[i];

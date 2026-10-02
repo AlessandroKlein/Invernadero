@@ -85,6 +85,7 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/storage", HTTP_GET, [this]() { handleStorage(); });
   server_.on("/api/v1/modbus/profiles", HTTP_GET, [this]() { handleModbusProfiles(); });
   server_.on("/api/v1/logs", HTTP_GET, [this]() { handleLogs(); });
+  server_.on("/api/v1/detect", HTTP_GET, [this]() { handleDetect(); });
 }
 
 void RestApi::handleRoot() {
@@ -96,6 +97,11 @@ void RestApi::handlePins() {
   // Página de pines: solo HTML (accesible desde la IP del dispositivo), no JSON.
   server_.sendHeader("Cache-Control", "no-cache");
   server_.send(200, "text/html", WebAssets::PINS_HTML);
+}
+
+void RestApi::handleDetect() {
+  // Autodetección guiada de dispositivos I²C (SEMA §210).
+  server_.send(200, "application/json", hardware_ ? hardware_->detectI2cJson() : "[]");
 }
 
 void RestApi::handleModules() {

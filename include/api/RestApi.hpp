@@ -113,6 +113,7 @@ private:
   void handleModbusProfiles();
   void handleLogs();
   void handlePins();
+  void handleDetect();
   bool requireAuth();
   void issueToken();
   String buildStatusJson();
