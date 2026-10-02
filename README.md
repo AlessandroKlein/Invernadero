@@ -7596,8 +7596,9 @@ El proyecto evolucionará hacia una arquitectura similar conceptualmente a siste
 > editables en `/pins` (NVS, con **bloqueo opcional para PCB fija** vía
 > `GH_PINS_LOCKED`) y ✅ **catálogo de sensores instanciable completo**
 > (`PUT /api/v1/sensors/catalog`): dirección y `enabled` de **todos** los sensores
-> se toman del catálogo. ❌ Queda la **configuración de expansores**
-> (74HC165/MCP23S17/ADC) — paso 3. Ver `docs/MEJORAS.md` §13.
+> se toman del catálogo. ⚠️ **Expansores**: catálogo editable/persistido
+> (`PUT /api/v1/hardware`); falta instanciar expansores nuevos (74HC165/MCP23S17/ADC).
+> Ver `docs/MEJORAS.md` §13.
 >
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y
