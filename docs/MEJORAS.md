@@ -292,9 +292,9 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
      **agregar** nodos de tipos conocidos (HC595/HC165/MCP23017/MCP23S17/ADC).
    - ✅ v3.27.0 — **pools SPI** (`Mcp23s17` y `AdcManager` MCP3208, hasta 4 c/u) +
      `SpiManager` desde NVS.
-   - ❌ Falta: pool de **74HC165** (necesita 3 pines data/clock/latch) y la
-     **asignación de canales a actuadores** (hoy `ActuatorManager` usa solo
-     `mcpPool[0]` + `shift`).
+   - ✅ v3.28.0 — **74HC165** instanciado desde el catálogo (pines + nº chips en NVS).
+   - ❌ Falta: **asignación de canales a actuadores** (hoy `ActuatorManager` usa
+     solo `mcpPool[0]` + `shift`).
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
 
 ### Impacto

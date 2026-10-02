@@ -4,6 +4,12 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.28.0] - 2026-10-02
+
+### Added
+- Pool de entradas 74HC165: `ShiftRegister165` instanciado desde el catálogo
+  (nodo `HC165`), con pines y nº de chips desde NVS (`hc165_data/clock/latch/count`).
+
 ## [3.27.0] - 2026-10-02
 
 ### Added
