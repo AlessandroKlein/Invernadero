@@ -268,7 +268,7 @@ void setup() {
 
   // 4) Sensores y actuadores.
   app.sensors.begin(app.config.get(), app.pinConfig, &app.sensorRegistry);
-  app.actuators.begin(app.config.get(), &app.shift, &app.mcpPool[0]);
+  app.actuators.begin(app.config.get(), &app.shift, app.mcpPool, 4);
   app.actuators.allSafeState();
   Device::setState(DeviceState::SELF_TEST);
 

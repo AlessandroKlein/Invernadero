@@ -43,10 +43,11 @@ static const RoleDef ROLE_TABLE[] = {
 };
 static const uint8_t ROLE_TABLE_SIZE = sizeof(ROLE_TABLE) / sizeof(ROLE_TABLE[0]);
 
-void ActuatorManager::begin(const SystemConfig& cfg, ShiftRegister595* shift, Mcp23017* mcp) {
+void ActuatorManager::begin(const SystemConfig& cfg, ShiftRegister595* shift, Mcp23017* mcpPool, uint8_t mcpCount) {
   cfg_ = cfg;
   shift_ = shift;
-  mcp_ = mcp;
+  mcpCount_ = mcpCount > 4 ? 4 : mcpCount;
+  for (uint8_t i = 0; i < mcpCount_; i++) mcpPool_[i] = &mcpPool[i];
   if (mutex_ == nullptr) mutex_ = xSemaphoreCreateMutex();
 
   // Construir los slots de actuadores a partir de la tabla de roles.
@@ -126,9 +127,12 @@ void ActuatorManager::writeChannel(const ActuatorState& s, float pct) {
   }
   if (channel == 255) return;
 
-  if (mcp_ && channel >= 32) {
-    // Expansión I²C (MCP23017): salida digital simple.
-    mcp_->digitalWrite(channel - 32, pct > 0 ? HIGH : LOW);
+  if (channel >= 32) {
+    // Expansión I²C (MCP23017): canales 32..95 → device 0..3, pin 0..15.
+    uint16_t idx = channel - 32;
+    uint8_t dev = idx / 16;
+    uint8_t pin = idx % 16;
+    if (dev < mcpCount_ && mcpPool_[dev]) mcpPool_[dev]->digitalWrite(pin, pct > 0 ? HIGH : LOW);
   } else if (shift_) {
     // Expansión SPI (74HC595) con soft-PWM.
     shift_->setChannelPercent(channel, pct);

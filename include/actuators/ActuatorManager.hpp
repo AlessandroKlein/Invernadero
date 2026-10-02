@@ -16,7 +16,8 @@ class ActuatorManager {
 public:
   static constexpr uint8_t MAX_ACTUATORS = 32;
 
-  void begin(const SystemConfig& cfg, ShiftRegister595* shift, Mcp23017* mcp = nullptr);
+  // mcpPool: pool de expansores I²C (hasta 4); mcpCount: nº de instancias válidas.
+  void begin(const SystemConfig& cfg, ShiftRegister595* shift, Mcp23017* mcpPool, uint8_t mcpCount = 4);
   void reconfigure(const SystemConfig& cfg);
 
   // Establece la orden deseada (0..100) desde los controladores o el usuario.
@@ -58,7 +59,8 @@ private:
   ActuatorState slots_[MAX_ACTUATORS];
   uint8_t count_ = 0;
   ShiftRegister595* shift_ = nullptr;
-  Mcp23017* mcp_ = nullptr;
+  Mcp23017* mcpPool_[4] = {nullptr, nullptr, nullptr, nullptr};
+  uint8_t mcpCount_ = 0;
   SystemConfig cfg_;
   mutable SemaphoreHandle_t mutex_ = nullptr;
 
