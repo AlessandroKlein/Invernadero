@@ -7598,7 +7598,7 @@ El proyecto evolucionará hacia una arquitectura similar conceptualmente a siste
 > (`PUT /api/v1/sensors/catalog`): dirección y `enabled` de **todos** los sensores
 > se toman del catálogo. ⚠️ **Expansores**: catálogo editable/persistido
 > (`PUT /api/v1/hardware`, permite agregar nodos) y **pool de MCP23017** (hasta 4)
-> instanciado desde el catálogo; pools MCP23S17/ADC y 74HC165 instanciados; falta solo la asignación de canales a actuadores.
+> instanciado desde el catálogo; pools (MCP23017/MCP23S17/ADC/74HC165) instanciados y asignación de canales con pool MCP23017 lista; resta mapeo de canales configurable por actuador.
 > Ver `docs/MEJORAS.md` §13.
 >
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
