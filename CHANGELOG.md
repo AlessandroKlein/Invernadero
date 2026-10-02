@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.27.0] - 2026-10-02
+
+### Added
+- Pools de expansores SPI instanciados desde el catálogo: `Mcp23s17` (hasta 4) y
+  `AdcManager` (hasta 4, MCP3208 por defecto), con `SpiManager` inicializado desde
+  los pines SPI de NVS.
+
 ## [3.26.0] - 2026-10-02
 
 ### Added

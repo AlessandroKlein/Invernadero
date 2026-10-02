@@ -290,8 +290,11 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
    - ✅ v3.25.0 — el driver **MCP23017 se instancia desde el catálogo**.
    - ✅ v3.26.0 — **pool de MCP23017** (hasta 4) + `PUT /api/v1/hardware` permite
      **agregar** nodos de tipos conocidos (HC595/HC165/MCP23017/MCP23S17/ADC).
-   - ❌ Falta: pools para 74HC165/MCP23S17/ADC y la **asignación de canales a
-     actuadores** (hoy `ActuatorManager` usa solo `mcpPool[0]`).
+   - ✅ v3.27.0 — **pools SPI** (`Mcp23s17` y `AdcManager` MCP3208, hasta 4 c/u) +
+     `SpiManager` desde NVS.
+   - ❌ Falta: pool de **74HC165** (necesita 3 pines data/clock/latch) y la
+     **asignación de canales a actuadores** (hoy `ActuatorManager` usa solo
+     `mcpPool[0]` + `shift`).
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
 
 ### Impacto
