@@ -157,66 +157,97 @@ static const char PINS_HTML[] = R"rawliteral(<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Invernadero · Pines y hardware</title>
+<title>Invernadero · Pines</title>
 <style>
 :root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--accent:#22c55e;--off:#94a3b8;--line:rgba(148,163,184,.16)}
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg);padding:16px;max-width:760px;margin:auto}
 h1{font-size:1.2rem;margin-bottom:4px}
 .sub{color:var(--off);font-size:.85rem;margin-bottom:18px}
 h2{font-size:1rem;color:var(--accent);margin:20px 0 10px}
-.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
-table{width:100%;border-collapse:collapse;font-size:.9rem}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-th{color:var(--off);font-weight:600}
-td:first-child{font-family:ui-monospace,monospace;font-size:.8rem}
-.note{color:var(--off);font-size:.78rem;margin-top:8px}
-@media(max-width:640px){
-  table thead{display:none}
-  table,table tbody,table tr,table td{display:block;width:100%}
-  table tr{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:4px 10px;background:var(--card)}
-  table td{border-bottom:none;padding:6px 4px;display:flex;justify-content:space-between;gap:12px;text-align:right}
-  table td::before{content:attr(data-label);color:var(--off);font-family:ui-monospace,monospace;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;text-align:left}
-}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--off);gap:4px}
+input{background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px;font-size:.9rem;font-family:ui-monospace,monospace}
+button{background:var(--accent);color:#06250f;border:0;border-radius:8px;padding:12px 16px;font-weight:700;font-size:.9rem;margin-top:18px;cursor:pointer}
+.note{color:var(--off);font-size:.78rem;margin-top:12px}
+#st{margin-top:10px;font-size:.85rem}
+.ok{color:var(--accent)}.err{color:#ef4444}
 </style>
 </head>
 <body>
-<h1>Pines y hardware</h1>
-<div class="sub">Mapa de pines por defecto (PinMap.hpp). Los pines se asignan por instalación y varían según sensores/expansores conectados.</div>
-
-<h2>Buses y E/S</h2>
-<div class="table-wrap"><table>
-<thead><tr><th>Función</th><th>GPIO</th><th>Tipo</th><th>Notas</th></tr></thead>
-<tbody>
-<tr><td data-label="Función">I²C SDA</td><td data-label="GPIO">21</td><td data-label="Tipo">bidireccional</td><td data-label="Notas">pull-up 4,7 kΩ a 3,3 V</td></tr>
-<tr><td data-label="Función">I²C SCL</td><td data-label="GPIO">22</td><td data-label="Tipo">bidireccional</td><td data-label="Notas">pull-up 4,7 kΩ a 3,3 V</td></tr>
-<tr><td data-label="Función">74HC595 DATA</td><td data-label="GPIO">23</td><td data-label="Tipo">salida</td><td data-label="Notas">SPI bit-banged (DS)</td></tr>
-<tr><td data-label="Función">74HC595 CLOCK</td><td data-label="GPIO">18</td><td data-label="Tipo">salida</td><td data-label="Notas">SHCP</td></tr>
-<tr><td data-label="Función">74HC595 LATCH</td><td data-label="GPIO">5</td><td data-label="Tipo">salida</td><td data-label="Notas">STCP</td></tr>
-<tr><td data-label="Función">SPI SCK/MISO/MOSI</td><td data-label="GPIO">18/19/23</td><td data-label="Tipo">SPI nativo</td><td data-label="Notas">MCP23S17/ADC/SD/W5500</td></tr>
-<tr><td data-label="Función">1-Wire</td><td data-label="GPIO">4</td><td data-label="Tipo">datos</td><td data-label="Notas">pull-up 4,7 kΩ a 3,3 V</td></tr>
-<tr><td data-label="Función">Caudalímetro</td><td data-label="GPIO">34</td><td data-label="Tipo">entrada</td><td data-label="Notas">solo entrada</td></tr>
-<tr><td data-label="Función">Pluviómetro</td><td data-label="GPIO">35</td><td data-label="Tipo">entrada</td><td data-label="Notas">solo entrada</td></tr>
-<tr><td data-label="Función">Anemómetro</td><td data-label="GPIO">36</td><td data-label="Tipo">entrada</td><td data-label="Notas">solo entrada</td></tr>
-<tr><td data-label="Función">Tanque TRIG/ECHO</td><td data-label="GPIO">25/26</td><td data-label="Tipo">salida/entrada</td><td data-label="Notas">ultrasónico</td></tr>
-<tr><td data-label="Función">Flotador bajo/alto</td><td data-label="GPIO">32/33</td><td data-label="Tipo">entrada</td><td data-label="Notas">pull-up interno</td></tr>
-<tr><td data-label="Función">Parada de emergencia</td><td data-label="GPIO">27</td><td data-label="Tipo">entrada</td><td data-label="Notas">pull-up interno</td></tr>
-<tr><td data-label="Función">RS485 RX/TX/DE</td><td data-label="GPIO">16/17/14</td><td data-label="Tipo">UART</td><td data-label="Notas">RO/DI/control dirección</td></tr>
-</tbody>
-</table></div>
-
-<h2>Direcciones I²C</h2>
-<div class="table-wrap"><table>
-<thead><tr><th>Dispositivo</th><th>Dirección</th></tr></thead>
-<tbody>
-<tr><td data-label="Dispositivo">SHT31</td><td data-label="Dirección">0x44</td></tr>
-<tr><td data-label="Dispositivo">AHT20</td><td data-label="Dirección">0x38</td></tr>
-<tr><td data-label="Dispositivo">ADS1115</td><td data-label="Dirección">0x48–0x4B</td></tr>
-<tr><td data-label="Dispositivo">BH1750</td><td data-label="Dirección">0x23</td></tr>
-<tr><td data-label="Dispositivo">SCD40/SCD41</td><td data-label="Dirección">0x62</td></tr>
-<tr><td data-label="Dispositivo">MCP23017 #1/#2</td><td data-label="Dirección">0x20 / 0x21</td></tr>
-</tbody>
-</table></div>
-<p class="note">Evitar GPIO de strapping (0, 2, 12, 15 en ESP32 clásico). El mapa real se define en <code>include/core/PinMap.hpp</code>.</p>
+<h1>Configuración de pines</h1>
+<div class="sub">Editable sin recompilar. Se guarda en NVS y requiere reinicio para aplicar.</div>
+<form id="f">
+  <h2>Bus I²C</h2>
+  <div class="grid">
+    <label>SDA<input name="i2c_sda" type="number"></label>
+    <label>SCL<input name="i2c_scl" type="number"></label>
+    <label>Frecuencia (Hz)<input name="i2c_freq" type="number"></label>
+  </div>
+  <h2>74HC595 (SPI bit-banged)</h2>
+  <div class="grid">
+    <label>MOSI (DATA)<input name="hc595_mosi" type="number"></label>
+    <label>SCLK (CLOCK)<input name="hc595_sclk" type="number"></label>
+    <label>LATCH<input name="hc595_latch" type="number"></label>
+    <label>Registros<input name="hc595_count" type="number"></label>
+  </div>
+  <h2>1-Wire</h2>
+  <div class="grid"><label>Pin DS18B20<input name="onewire" type="number"></label></div>
+  <h2>Entradas de pulsos</h2>
+  <div class="grid">
+    <label>Caudalímetro<input name="flow_pin" type="number"></label>
+    <label>Pluviómetro<input name="rain_pin" type="number"></label>
+    <label>Anemómetro<input name="wind_pin" type="number"></label>
+  </div>
+  <h2>Tanque</h2>
+  <div class="grid">
+    <label>Ultrasónico TRIG<input name="tank_trig" type="number"></label>
+    <label>Ultrasónico ECHO<input name="tank_echo" type="number"></label>
+    <label>Flotador bajo<input name="float_low" type="number"></label>
+    <label>Flotador alto<input name="float_high" type="number"></label>
+  </div>
+  <h2>Seguridad</h2>
+  <div class="grid"><label>Parada emergencia<input name="emergency_stop" type="number"></label></div>
+  <h2>RS485 / Modbus</h2>
+  <div class="grid">
+    <label>RX<input name="rs485_rx" type="number"></label>
+    <label>TX<input name="rs485_tx" type="number"></label>
+    <label>DE/RE<input name="rs485_de" type="number"></label>
+  </div>
+  <h2>SPI nativo</h2>
+  <div class="grid">
+    <label>SCK<input name="spi_sck" type="number"></label>
+    <label>MISO<input name="spi_miso" type="number"></label>
+    <label>MOSI<input name="spi_mosi" type="number"></label>
+  </div>
+  <h2>Direcciones I²C (decimal)</h2>
+  <div class="grid">
+    <label>SHT31<input name="i2c_addr_sht31" type="number"></label>
+    <label>AHT20<input name="i2c_addr_aht20" type="number"></label>
+    <label>ADS1115<input name="i2c_addr_ads1115" type="number"></label>
+    <label>BH1750<input name="i2c_addr_bh1750" type="number"></label>
+    <label>SCD41<input name="i2c_addr_scd41" type="number"></label>
+    <label>MCP23017<input name="i2c_addr_mcp23017" type="number"></label>
+  </div>
+  <button type="submit">Guardar y reiniciar</button>
+</form>
+<div id="st"></div>
+<p class="note">Evitar GPIO de strapping (0, 2, 12, 15 en ESP32 clásico).</p>
+<script>
+var f=document.getElementById('f');
+fetch('/api/v1/pins').then(function(r){return r.json()}).then(function(p){
+  f.querySelectorAll('input[name]').forEach(function(i){ if(p[i.name]!==undefined) i.value=p[i.name]; });
+}).catch(function(){});
+f.addEventListener('submit',function(e){
+  e.preventDefault();
+  var o={};
+  f.querySelectorAll('input[name]').forEach(function(i){ o[i.name]=parseInt(i.value,10)||0; });
+  var st=document.getElementById('st');
+  fetch('/api/v1/pins',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)})
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+    .then(function(x){ if(x.ok){ st.className='ok'; st.textContent='Guardado. Reiniciando...'; setTimeout(function(){location.reload();},1500);} else { st.className='err'; st.textContent='Error: '+(x.j.error||'no autorizado'); } })
+    .catch(function(){ st.className='err'; st.textContent='Error de red'; });
+});
+</script>
 </body></html>)rawliteral";
 
 } // namespace WebAssets
