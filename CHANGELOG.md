@@ -4,6 +4,24 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.11.0] - 2026-10-02
+
+### Added
+- `Logger` estructurado (`system/Logger`): buffer circular con nivel/módulo/mensaje
+  y salida a Serial; expuesto en `GET /api/v1/logs`.
+- `EventBus` (`core/EventBus`): bus interno de eventos con cola FreeRTOS
+  (`SYSTEM_BOOT`, `ALARM`, `RAIN_START`, `NETWORK_UP/DOWN`, ...).
+- `Scheduler` (`core/Scheduler`): tareas periódicas por capacidades; la
+  publicación MQTT ahora es una tarea programada (cada 10 s).
+- `StorageManager::beginSD()`: backend SD por SPI (librería `SD`).
+- Tipos de configuración por capas (`ConfigLayer`: FACTORY→USER) en
+  `PlatformTypes`.
+- `docs/ESTANDAR-DOCUMENTACION.md`: estándar reutilizable de wiki/documentación
+  (estructura, conexiones con componentes, registro de cambios, ADR, publicación).
+
+### Changed
+- La publicación MQTT periódica se mueve del `loop()` al `Scheduler`.
+
 ## [3.10.0] - 2026-10-02
 
 ### Added

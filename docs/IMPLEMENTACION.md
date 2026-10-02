@@ -35,7 +35,7 @@ src/
   main.cpp                 # cableado + tarea de automatización (FreeRTOS)
 include/ y src/
   core/                    # Types, PinMap, Version, PlatformTypes (V8),
-                           # CapabilityRegistry, ModuleRegistry
+                           # CapabilityRegistry, ModuleRegistry, EventBus, Scheduler
   config/                  # ConfigManager (JSON en NVS, versionado + rollback) + Defaults
   storage/                 # History (buffer circular de eventos/alarmas),
                            # StorageManager (LittleFS/SPIFFS)
@@ -50,8 +50,8 @@ include/ y src/
   control/                 # Climate, Irrigation, Lighting, Roof, Safety
   network/                 # NetworkManager (WiFi/AP/mDNS/NTP), MqttManager
   api/                     # RestApi (REST), WebSocketServer (/ws puerto 81)
-  system/                  # Watchdog, HealthMonitor, BootCounters, OtaManager,
-                           # Diagnostics, Device
+  system/                  # Watchdog, HealthMonitor, BootCounters, Logger,
+                           # OtaManager, Diagnostics, Device
   web/                     # WebAssets (interfaz embebida servida en /)
 ```
 
@@ -118,6 +118,9 @@ GET  /api/v1/boot
 
 # Almacenamiento + Modbus (V8.4/V9)
 GET  /api/v1/storage          GET  /api/v1/modbus/profiles
+
+# Logs estructurados
+GET  /api/v1/logs
 ```
 
 ## Plataforma configurable (V8)

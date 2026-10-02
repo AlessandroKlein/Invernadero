@@ -9,7 +9,7 @@
 
 ---
 
-## 1. Resumen (v3.9.0 → v3.10.0)
+## 1. Resumen (v3.9.0 → v3.11.0)
 
 | Mejora | Estado |
 |--------|--------|
@@ -24,10 +24,12 @@
 | V8.4: `StorageManager` (LittleFS/SPIFFS) | ✅ v3.10.0 |
 | V9: `ModbusProfileRegistry` (perfiles + instancias + provisioning) | ✅ v3.10.0 |
 | Abstracción CAN/TWAI + capa de aplicación (nodos) | ✅ v3.10.0 |
+| `Logger` estructurado + `EventBus` + `Scheduler` por capacidades | ✅ v3.11.0 |
+| SD (backend de `StorageManager`) | ✅ v3.11.0 |
+| Tipos de configuración por capas (`ConfigLayer`) | ✅ v3.11.0 |
 | W5500 Ethernet (librería SPI + interfaz de red intercambiable) | ❌ pendiente |
-| SD (backend de `StorageManager`) | ❌ pendiente |
-| Configuración por capas + migraciones | ❌ pendiente |
-| Event Bus + scheduler por capacidades + Store & Forward | ❌ pendiente |
+| Configuración por capas: merge/migraciones completos | ❌ pendiente |
+| Store & Forward + sincronización incremental (`sequence_id`) | ❌ pendiente (servidor) |
 
 ---
 
@@ -152,18 +154,17 @@ función sin tocar el driver. Implica `schema_version` + migraciones.
 
 ---
 
-## 8. Otras mejoras de SEMA aplicables (prioridad media/baja)
+## 8. Otras mejoras de SEMA (estado)
 
-- **Autodetección guiada** (SEMA §210): escanear buses → detectar dispositivos →
-  asociar funciones sin recompilar.
-- **Event Bus / Event Manager** (SEMA §204-205): desacoplar módulos ante eventos
-  (lluvia, alarma, batería, red).
-- **Scheduler por capacidades** (SEMA §206-208): crear tareas solo si el módulo
-  está habilitado.
-- **Store & Forward** (SEMA §241-243): sincronización incremental con
-  `sequence_id` para no perder datos offline.
-- **API Keys + revocación** (SEMA §164-165) para integraciones externas.
-- **Rate limiting y CORS** (SEMA §166-167).
+- **Event Bus / Event Manager** (SEMA §204-205) → ✅ v3.11.0 (`core/EventBus`).
+- **Scheduler por capacidades** (SEMA §206-208) → ✅ v3.11.0 (`core/Scheduler`).
+- **Log estructurado** (SEMA §218-220) → ✅ v3.11.0 (`system/Logger`).
+- **SD** → ✅ v3.11.0 (`StorageManager::beginSD()`).
+- **API Keys + revocación** (SEMA §164-165) → ✅ (token de API v3.9.0).
+- **Autodetección guiada** (SEMA §210) → ❌ pendiente.
+- **Store & Forward** (SEMA §241-243) → ❌ pendiente (sincronización incremental
+  con `sequence_id`, requiere servidor).
+- **Rate limiting y CORS** (SEMA §166-167) → ❌ pendiente (lado servidor).
 
 ---
 
