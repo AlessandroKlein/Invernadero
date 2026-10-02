@@ -236,6 +236,56 @@ ModbusGateway
 
 | Ítem | Estado |
 |------|--------|
-| Gateway RS485 (polling multi-esclavo por perfiles) | ❌ pendiente (ver §11) |
-| HTTP/OTA sobre Ethernet | ⚠️ bloqueado (ver §10) |
-| Resto | ✅ implementado |
+| Gateway RS485 (polling multi-esclavo por perfiles) | ✅ v3.17.0 |
+| OTA HTTP sobre Ethernet | ✅ v3.16.0 |
+| HTTPS sobre W5500 (W5500lwIP / ETH nativo) | ❌ pendiente |
+| Estación meteorológica por Ethernet (GET sobre `Client*`) | ❌ pendiente |
+| Resto de MEJORAS | ✅ implementado |
+
+## 13. Configurabilidad completa de hardware — pendiente (evaluación)
+
+### ¿Es modular el proyecto?
+
+**Parcialmente.** La configuración **funcional** sí es 100 % editable desde la web
+sin tocar código; la configuración **de hardware** todavía es compile-time.
+
+### Configurable desde la web/API (sin recompilar)
+
+- **Sensores**: habilitar/deshabilitar (`sht31`, `ds18b20`, `soil`, `light`, `co2`,
+  `rain`, `wind`, `tank`, `flow`, `ph`, `ec`, `exterior`).
+- **Actuadores**: habilitar + cantidad (`pump`, `valves`, `fans`, `extractors`,
+  `lights`, `heater`, `humidifier`, `roof`, `window`, `shade`).
+- **Umbrales, calibración, zonas, horarios**, reglas, variables calculadas.
+- **Red**: WiFi/Ethernet (`net_interface`), MQTT, NTP, DNS, servidor central.
+- **Token de API, canal de actualización, simulación**.
+- **Perfiles Modbus** (declarativos, `ModbusProfileRegistry`).
+
+### NO configurable (compile-time)
+
+- **Mapa de pines** (`PinMap.hpp` son `constexpr`).
+- **Selección del modelo de sensor** (drivers compilados; no se puede agregar un
+  modelo nuevo desde la web).
+- **Expansores** (74HC165 / MCP23S17 / ADC) y sus pines/CS/canales.
+- **Direcciones I²C** (fijas en `PinMap.hpp`).
+- **Buses** (registrados en `BusManager::begin()`).
+
+### Camino a modularidad completa (Tasmota-like)
+
+1. **Pines en tiempo de ejecución**: mover `PinMap` a una tabla en NVS; cada
+   driver recibe sus pines por configuración.
+2. **Catálogo de sensores instanciable**: `SensorRegistry` ya modela "driver +
+   bus + address + zone"; falta que el `SensorManager` instancie drivers según
+   el catálogo (hoy usa drivers compilados + flags).
+3. **Configuración de expansores**: tipo (74HC165/MCP23S17/ADC) + bus + CS/dir +
+   canales, editable desde la web (protegido, README §204).
+4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
+
+### Impacto
+
+- Requiere refactor de `SensorManager`/`ActuatorManager`/`HardwareManager` para
+  leer pines/direcciones desde configuración en lugar de `PinMap`.
+- Es el hito que convierte el firmware en "plataforma" completa (README §282-286).
+
+> La UI web actual permite habilitar/deshabilitar y ajustar parámetros, pero **no**
+> elegir pines ni modelos de sensor; eso está documentado como "Hardware avanzado
+> protegido" (README §203-204) y sigue siendo compile-time.

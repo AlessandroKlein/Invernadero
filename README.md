@@ -7590,6 +7590,11 @@ La automatización continúa funcionando aunque la red desaparezca.**
 
 El proyecto evolucionará hacia una arquitectura similar conceptualmente a sistemas como Tasmota, donde un único firmware pueda utilizarse en diferentes configuraciones de hardware sin necesidad de modificar el código fuente para cada instalación.
 
+> **Configurabilidad (v3.17.0):** la configuración **funcional** es 100 % editable
+> desde la web (sensores/actuadores a habilitar, umbrales, zonas, red, perfiles
+> Modbus). La configuración **de hardware** (pines, modelos de sensor, expansores,
+> direcciones I²C) sigue siendo **compile-time**; ver `docs/MEJORAS.md` §13.
+>
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y
 > `ActuatorRegistry` — con exposición por REST, token de API, health monitor y
