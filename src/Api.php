@@ -455,8 +455,9 @@ final class Api
             $st->execute([$did, $sid]);
             $sensor = $st->fetch();
             if (!$sensor) continue;
-            $ins = $db->prepare('INSERT INTO sensor_readings (sensor_id, value, unit, quality) VALUES (?, ?, ?, ?)');
-            $ins->execute([$sensor['id'], (float) ($r['value'] ?? 0), $r['unit'] ?? null, $r['quality'] ?? 'GOOD']);
+            $seq = isset($r['sequence']) ? (int) $r['sequence'] : null;
+            $ins = $db->prepare('INSERT INTO sensor_readings (sensor_id, value, unit, quality, sequence) VALUES (?, ?, ?, ?, ?)');
+            $ins->execute([$sensor['id'], (float) ($r['value'] ?? 0), $r['unit'] ?? null, $r['quality'] ?? 'GOOD', $seq]);
             $count++;
         }
         Response::json(['ingested' => $count]);
@@ -468,8 +469,9 @@ final class Api
         $limit = min(1000, (int) ($_GET['limit'] ?? 500));
         $from  = $_GET['from'] ?? null;
         $to    = $_GET['to'] ?? null;
+        $afterSeq = $_GET['after_sequence'] ?? null;
 
-        $sql = 'SELECT r.ts, r.value, r.unit, r.quality, s.sensor_id, s.name
+        $sql = 'SELECT r.ts, r.value, r.unit, r.quality, r.sequence, s.sensor_id, s.name
                 FROM sensor_readings r JOIN sensors s ON s.id = r.sensor_id
                 WHERE s.device_id = :did';
         $params = ['did' => $did];
@@ -477,6 +479,10 @@ final class Api
         if ($sensorId) {
             $sql .= ' AND s.sensor_id = :sid';
             $params['sid'] = $sensorId;
+        }
+        if ($afterSeq !== null && $afterSeq !== '') {
+            $sql .= ' AND r.sequence > :aseq';
+            $params['aseq'] = (int) $afterSeq;
         }
         if ($from) {
             $sql .= ' AND r.ts >= :from';

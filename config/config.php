@@ -36,4 +36,11 @@ return [
         'secret' => getenv('JWT_SECRET') ?: 'cambiar-esta-clave-secreta',
         'ttl'    => (int) (getenv('JWT_TTL') ?: 86400),
     ],
+    'cors' => [
+        'origin' => getenv('CORS_ORIGIN') ?: '*',
+    ],
+    'rate_limit' => [
+        'max_requests'  => (int) (getenv('RATE_LIMIT_MAX') ?: 120),
+        'window_seconds' => (int) (getenv('RATE_LIMIT_WINDOW') ?: 60),
+    ],
 ];
