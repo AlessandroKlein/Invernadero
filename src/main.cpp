@@ -27,6 +27,7 @@
 #include "sensors/SensorManager.hpp"
 #include "sensors/SensorRegistry.hpp"
 #include "sensors/ModbusProfileRegistry.hpp"
+#include "sensors/ModbusGateway.hpp"
 #include "actuators/ActuatorManager.hpp"
 #include "actuators/ActuatorRegistry.hpp"
 
@@ -65,6 +66,7 @@ struct App {
   SensorRegistry sensorRegistry;
   ActuatorRegistry actuatorRegistry;
   ModbusProfileRegistry modbusProfiles;
+  ModbusGateway modbusGateway;
   StorageManager storage;
   ShiftRegister595 shift;
   Mcp23017 mcp;
@@ -226,6 +228,10 @@ void setup() {
   app.safety.begin(&app.sensors, &app.actuators, &app.history);
   app.rules.begin(&app.sensors, &app.actuators, &app.history);
 
+  // 5.5) Gateway RS485/Modbus (polling multi-esclavo por perfiles, V9).
+  app.modbusGateway.begin(app.sensors.modbusRtu(), &app.modbusProfiles);
+  app.modbusGateway.rebuild();
+
   // 6) Red, MQTT, API, WebSocket, OTA, Watchdog.
   app.network.begin(app.config.get());
   Device::setState(DeviceState::NETWORK);
@@ -240,6 +246,7 @@ void setup() {
   app.api.setHealth(&app.health, &app.boot);
   app.api.setStorage(&app.storage);
   app.api.setModbusProfiles(&app.modbusProfiles);
+  app.api.setModbusGateway(&app.modbusGateway);
   app.api.setLogger(&app.logger);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
@@ -279,8 +286,9 @@ void loop() {
     }
   }
 
-  // Publicación MQTT periódica vía Scheduler y drenaje del bus de eventos.
+  // Publicación MQTT periódica vía Scheduler, gateway RS485 y drenaje de eventos.
   app.scheduler.tick();
+  app.modbusGateway.tick();
   Event ev;
   if (app.events.poll(ev)) {
     app.logger.info("event", eventTypeString(ev.type));

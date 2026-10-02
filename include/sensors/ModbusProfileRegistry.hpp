@@ -25,6 +25,7 @@ public:
   bool hasInstance(const char* id) const { return findInstance(id) >= 0; }
   uint8_t profileCount() const { return profileCount_; }
   uint8_t instanceCount() const { return instanceCount_; }
+  void snapshotInstances(SensorInstance* out, size_t max, size_t& n) const;
   String toJson() const;
 
 private:

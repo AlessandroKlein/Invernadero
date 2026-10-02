@@ -49,6 +49,11 @@ bool ModbusProfileRegistry::getInstance(const char* id, SensorInstance& out) con
   return true;
 }
 
+void ModbusProfileRegistry::snapshotInstances(SensorInstance* out, size_t max, size_t& n) const {
+  n = 0;
+  for (uint8_t i = 0; i < instanceCount_ && n < max; i++) out[n++] = instances_[i];
+}
+
 String ModbusProfileRegistry::toJson() const {
   DynamicJsonDocument doc(4096);
   JsonObject root = doc.to<JsonObject>();

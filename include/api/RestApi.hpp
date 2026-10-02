@@ -9,6 +9,7 @@
 #include "sensors/SensorManager.hpp"
 #include "sensors/SensorRegistry.hpp"
 #include "sensors/ModbusProfileRegistry.hpp"
+#include "sensors/ModbusGateway.hpp"
 #include "actuators/ActuatorManager.hpp"
 #include "actuators/ActuatorRegistry.hpp"
 #include "storage/History.hpp"
@@ -42,6 +43,7 @@ public:
   }
   void setStorage(StorageManager* storage) { storage_ = storage; }
   void setModbusProfiles(ModbusProfileRegistry* mp) { modbusProfiles_ = mp; }
+  void setModbusGateway(ModbusGateway* gw) { modbusGateway_ = gw; }
   void setLogger(Logger* logger) { logger_ = logger; }
 private:
   WebServer server_{80};
@@ -61,6 +63,7 @@ private:
   BootCounters* boot_ = nullptr;
   StorageManager* storage_ = nullptr;
   ModbusProfileRegistry* modbusProfiles_ = nullptr;
+  ModbusGateway* modbusGateway_ = nullptr;
   Logger* logger_ = nullptr;
 
   // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
@@ -111,6 +114,7 @@ private:
   void handleBoot();
   void handleStorage();
   void handleModbusProfiles();
+  void handleModbusGateway();
   void handleLogs();
   void handlePins();
   void handleDetect();

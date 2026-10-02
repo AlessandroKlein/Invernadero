@@ -70,6 +70,7 @@ public:
   // Diagnóstico RS485/Modbus (secciones 115/177).
   uint8_t scanModbus(uint8_t* found, uint8_t maxFound) { return modbus_.scan(found, maxFound); }
   ModbusStats modbusStats() const { return modbus_.stats(); }
+  ModbusRtu* modbusRtu() { return &modbus_; }  // para el gateway RS485
 
   // Herramienta Modbus de mantenimiento (sección 178).
   bool modbusReadHolding(uint8_t slaveId, uint16_t addr, uint16_t count, uint16_t* out) {
