@@ -271,10 +271,10 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
 
 ### Camino a modularidad completa (Tasmota-like)
 
-1. ✅ **Pines en tiempo de ejecución (v3.18.0)**: `PinConfig` + `PinConfigManager`
-   en NVS (`ghpins`); sensores/actuadores/buses leen pines de NVS. Expuesto en
-   `GET/PUT /api/v1/pins` (PUT protegido). *Pendiente: formulario web editable en
-   `/pins` (hoy la página es de solo lectura).*
+1. ✅ **Pines en tiempo de ejecución (v3.18.0–v3.19.0)**: `PinConfig` +
+   `PinConfigManager` en NVS (`ghpins`); sensores/actuadores/buses leen pines de
+   NVS. Expuesto en `GET/PUT /api/v1/pins` (PUT protegido) y con **formulario web
+   editable en `/pins`** (v3.19.0).
 2. **Catálogo de sensores instanciable**: `SensorRegistry` ya modela "driver +
    bus + address + zone"; falta que el `SensorManager` instancie drivers según
    el catálogo (hoy usa drivers compilados + flags).

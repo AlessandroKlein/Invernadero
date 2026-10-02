@@ -4,6 +4,12 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.19.0] - 2026-10-02
+
+### Added
+- Página `/pins` editable: formulario web que carga y guarda el mapa de pines en
+  NVS vía `GET/PUT /api/v1/pins` (sin recompilar).
+
 ## [3.18.0] - 2026-10-02
 
 ### Added
