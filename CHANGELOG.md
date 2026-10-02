@@ -4,6 +4,18 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.22.0] - 2026-10-02
+
+### Added
+- Bloqueo de pines para PCB fabricada: `GH_PINS_LOCKED` en `Version.hpp`
+  (0 = público, 1 = PCB fija). Con `1`, `PUT /api/v1/pins` devuelve 403 y la web
+  `/pins` deshabilita el formulario; el catálogo de sensores/actuadores sigue
+  configurable.
+
+### Changed
+- El `enabled` del catálogo de sensores controla el reporte de los I²C
+  (SHT31/AHT20/ADS1115/BH1750/SCD41), además de su dirección.
+
 ## [3.21.0] - 2026-10-02
 
 ### Changed
