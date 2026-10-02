@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <math.h>
 #include "core/PinConfig.hpp"
+#include "sensors/SensorRegistry.hpp"
 
 namespace gh {
 
@@ -15,22 +16,31 @@ enum Slot : uint8_t {
   S_RAIN = 16, S_WIND = 17, S_PH = 18, S_EC = 19
 };
 
-void SensorManager::begin(const SystemConfig& cfg, const PinConfig& pins) {
+void SensorManager::begin(const SystemConfig& cfg, const PinConfig& pins, SensorRegistry* registry) {
   cfg_ = cfg;
   pins_ = pins;
+  registry_ = registry;
   if (mutex_ == nullptr) mutex_ = xSemaphoreCreateMutex();
 
   // Inicializar bus I²C principal.
   Wire.begin(pins_.i2cSda, pins_.i2cScl, pins_.i2cFreq);
 
-  // Sensores I²C.
-  sht31_.begin(TempHumSensor::Kind::SHT31, pins_.i2cAddrSht31, &Wire);
-  exterior_.begin(TempHumSensor::Kind::AHT20, pins_.i2cAddrAht20, &Wire);
-  ads_.begin(pins_.i2cAddrAds1115, &Wire);
-  light_.begin(pins_.i2cAddrBh1750, &Wire);
+  // Resuelve la dirección I²C desde el catálogo (editable por web); si no hay
+  // catálogo o la entrada no existe, usa el default del PinConfig.
+  auto addr = [&](const char* id, uint8_t defAddr) -> uint8_t {
+    SensorEntry e;
+    if (registry_ && registry_->get(id, e)) return e.address;
+    return defAddr;
+  };
+
+  // Sensores I²C (dirección desde el catálogo instanciable).
+  sht31_.begin(TempHumSensor::Kind::SHT31, addr("temp_interior", pins_.i2cAddrSht31), &Wire);
+  exterior_.begin(TempHumSensor::Kind::AHT20, addr("temp_exterior", pins_.i2cAddrAht20), &Wire);
+  ads_.begin(addr("soil_0", pins_.i2cAddrAds1115), &Wire);
+  light_.begin(addr("light", pins_.i2cAddrBh1750), &Wire);
 
   // CO₂ (opcional): iniciar medición periódica si el chip responde.
-  co2_.begin(pins_.i2cAddrScd41, &Wire);
+  co2_.begin(addr("co2", pins_.i2cAddrScd41), &Wire);
 
   // DS18B20 en bus 1-Wire.
   ds18b20_.begin(pins_.oneWire);

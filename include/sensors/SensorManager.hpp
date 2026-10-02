@@ -25,12 +25,14 @@
 
 namespace gh {
 
+class SensorRegistry;
+
 class SensorManager {
 public:
   static constexpr uint8_t MAX_SENSORS = 20;
   static constexpr uint8_t MAX_SOIL_ZONES = 4;
 
-  void begin(const SystemConfig& cfg, const PinConfig& pins);
+  void begin(const SystemConfig& cfg, const PinConfig& pins, SensorRegistry* registry = nullptr);
   void reconfigure(const SystemConfig& cfg); // Actualiza habilitados/calibración
   void update();                             // Lee todos los sensores habilitados
 
@@ -100,6 +102,7 @@ private:
   SensorValue values_[MAX_SENSORS];
   SystemConfig cfg_;
   PinConfig pins_;
+  SensorRegistry* registry_ = nullptr;
   mutable SemaphoreHandle_t mutex_ = nullptr;
   uint32_t lastDs18Request_ = 0;
   bool ds18Pending_ = false;

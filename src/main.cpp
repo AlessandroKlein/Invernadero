@@ -220,7 +220,7 @@ void setup() {
   app.mcp.begin(app.pinConfig.i2cAddrMcp23017, &Wire);
 
   // 4) Sensores y actuadores.
-  app.sensors.begin(app.config.get(), app.pinConfig);
+  app.sensors.begin(app.config.get(), app.pinConfig, &app.sensorRegistry);
   app.actuators.begin(app.config.get(), &app.shift, &app.mcp);
   app.actuators.allSafeState();
   Device::setState(DeviceState::SELF_TEST);
