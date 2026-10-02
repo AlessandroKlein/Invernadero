@@ -21,6 +21,9 @@
 
 #include "hardware/ShiftRegister595.hpp"
 #include "hardware/Mcp23017.hpp"
+#include "hardware/SpiManager.hpp"
+#include "hardware/Mcp23s17.hpp"
+#include "hardware/AdcManager.hpp"
 #include "hardware/BusManager.hpp"
 #include "hardware/HardwareManager.hpp"
 
@@ -72,6 +75,9 @@ struct App {
   StorageManager storage;
   ShiftRegister595 shift;
   Mcp23017 mcpPool[4];  // pool de expansores I²C instanciados desde el catálogo
+  SpiManager spi;
+  Mcp23s17 spiPool[4];  // pool de expansores SPI
+  AdcManager adcPool[4]; // pool de ADC SPI
   SensorManager sensors;
   ActuatorManager actuators;
   ClimateController climate;
@@ -230,6 +236,26 @@ void setup() {
     for (size_t i = 0; i < hwN && mcpCount < 4; i++) {
       if (hwNodes[i].kind == HardwareKind::MCP23017 && hwNodes[i].enabled) {
         app.mcpPool[mcpCount++].begin(hwNodes[i].address, &Wire);
+      }
+    }
+  }
+
+  // Bus SPI nativo (MCP23S17 / ADC). Se inicializa una sola vez con los pines de NVS.
+  app.spi.begin(app.pinConfig.spiSck, app.pinConfig.spiMiso, app.pinConfig.spiMosi);
+
+  // Pools de expansores SPI (MCP23S17 y ADC) desde el catálogo.
+  {
+    HardwareNode hwNodes[HardwareManager::MAX_NODES];
+    size_t hwN = 0;
+    app.hardware.snapshot(hwNodes, HardwareManager::MAX_NODES, hwN);
+    uint8_t spiCount = 0, adcCount = 0;
+    for (size_t i = 0; i < hwN; i++) {
+      const HardwareNode& nd = hwNodes[i];
+      if (!nd.enabled) continue;
+      if (nd.kind == HardwareKind::MCP23S17 && spiCount < 4) {
+        app.spiPool[spiCount++].begin(&app.spi, nd.address, 0);
+      } else if (nd.kind == HardwareKind::ADC && adcCount < 4) {
+        app.adcPool[adcCount++].begin(&app.spi, nd.address, AdcKind::MCP3208, 8);
       }
     }
   }
