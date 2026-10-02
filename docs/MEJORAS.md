@@ -275,12 +275,12 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
    `PinConfigManager` en NVS (`ghpins`); sensores/actuadores/buses leen pines de
    NVS. Expuesto en `GET/PUT /api/v1/pins` (PUT protegido) y con **formulario web
    editable en `/pins`** (v3.19.0).
-2. **Catálogo de sensores instanciable** (en curso):
+2. ✅ **Catálogo de sensores instanciable** (completo):
    - ✅ v3.20.0 — `SensorRegistry` editable y persistido (`PUT /api/v1/sensors/catalog`).
-   - ✅ v3.21.0 — `SensorManager` lee las **direcciones I²C** (SHT31/AHT20/ADS1115/BH1750/SCD41) del catálogo.
-   - ✅ v3.22.0 — el **`enabled` del catálogo** controla el reporte de los I²C.
-   - ❌ Falta: extender `enabled`/dirección por catálogo al resto (1-Wire, pulsos,
-     tanque, pH/EC) y la **configuración de expansores** (paso 3).
+   - ✅ v3.21.0 — direcciones I²C desde el catálogo.
+   - ✅ v3.22.0 — `enabled` del catálogo controla el reporte de los I²C.
+   - ✅ v3.23.0 — `enabled` del catálogo controla el reporte de **todos** los
+     sensores (1-Wire, pulsos, tanque, pH/EC).
 
 > **Bloqueo de pines (v3.22.0):** `GH_PINS_LOCKED` (0 público / 1 PCB fija). Con
 > PCB fija, los pines no se editan (web bloqueada, `PUT` → 403), pero el catálogo

@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.23.0] - 2026-10-02
+
+### Changed
+- El `enabled` del catálogo de sensores controla ahora el reporte de **todos** los
+  sensores (1-Wire, caudal, tanque, lluvia, viento, pH, EC), además de los I²C.
+  El paso 2 (catálogo instanciable) queda completo.
+
 ## [3.22.0] - 2026-10-02
 
 ### Added
