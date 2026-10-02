@@ -291,6 +291,13 @@ String ConfigManager::toJson(const SystemConfig& c) {
   net["timezone"] = c.timezone;
   net["dns1"] = c.dnsPrimary;
   net["dns2"] = c.dnsSecondary;
+  net["net_interface"] = (c.netInterface == NetInterface::ETHERNET) ? "ethernet" : "wifi";
+  net["eth_cs"] = c.ethCsPin;
+  net["eth_dhcp"] = c.ethDhcp;
+  net["eth_ip"] = c.ethIp;
+  net["eth_gateway"] = c.ethGateway;
+  net["eth_mask"] = c.ethMask;
+  net["eth_dns"] = c.ethDns;
   net["central_managed"] = c.managedByCentral;
   net["central_url"] = c.centralUrl;
   net["central_port"] = c.centralPort;
@@ -466,6 +473,16 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     copyStr(n["timezone"], out.timezone, sizeof(out.timezone));
     copyStr(n["dns1"], out.dnsPrimary, sizeof(out.dnsPrimary));
     copyStr(n["dns2"], out.dnsSecondary, sizeof(out.dnsSecondary));
+    if (n["net_interface"].is<const char*>()) {
+      out.netInterface = (String(n["net_interface"] | "wifi") == "ethernet")
+                             ? NetInterface::ETHERNET : NetInterface::WIFI;
+    }
+    out.ethCsPin = n["eth_cs"] | out.ethCsPin;
+    out.ethDhcp = n["eth_dhcp"] | out.ethDhcp;
+    copyStr(n["eth_ip"], out.ethIp, sizeof(out.ethIp));
+    copyStr(n["eth_gateway"], out.ethGateway, sizeof(out.ethGateway));
+    copyStr(n["eth_mask"], out.ethMask, sizeof(out.ethMask));
+    copyStr(n["eth_dns"], out.ethDns, sizeof(out.ethDns));
     out.managedByCentral = n["central_managed"] | out.managedByCentral;
     copyStr(n["central_url"], out.centralUrl, sizeof(out.centralUrl));
     out.centralPort = n["central_port"] | out.centralPort;

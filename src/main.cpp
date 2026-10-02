@@ -134,6 +134,9 @@ static void controlTask(void* arg) {
   }
 }
 
+// ¿Hay red disponible? (WiFi o Ethernet, según la interfaz activa).
+static bool isNetUp() { return app.network.connected(); }
+
 // Publicación MQTT periódica (Scheduler, SEMA §206). Se ejecuta cada 10 s.
 static void mqttPublishTask(void* ctx) {
   (void)ctx;
@@ -227,7 +230,7 @@ void setup() {
   app.network.begin(app.config.get());
   Device::setState(DeviceState::NETWORK);
   app.weather.begin(app.config.get());
-  app.mqtt.begin(app.config.get());
+  app.mqtt.begin(app.config.get(), app.network.client(), isNetUp);
   app.scheduler.add("mqtt_publish", 10000, mqttPublishTask, nullptr);
   app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history,
                 &app.network, &app.mqtt);

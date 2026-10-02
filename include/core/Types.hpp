@@ -105,6 +105,9 @@ enum class ConfigSource : uint8_t { LOCAL = 0, CENTRAL = 1 };
 // Canal de actualización de firmware (sección 148).
 enum class UpdateChannel : uint8_t { STABLE = 0, BETA = 1, DEVELOPMENT = 2 };
 
+// Interfaz de red intercambiable (sección 247/248): WiFi o Ethernet (W5500).
+enum class NetInterface : uint8_t { WIFI = 0, ETHERNET = 1 };
+
 // Variable medible/calculable para el motor de reglas (secciones 121/235/237).
 enum class RuleVariable : uint8_t {
   TEMPERATURE = 0, HUMIDITY = 1, SOIL = 2, LIGHT = 3, CO2 = 4,
@@ -283,6 +286,16 @@ struct SystemConfig {
   char timezone[48] = "America/Argentina/Buenos_Aires"; // IANA (sección 125)
   char dnsPrimary[16] = "8.8.8.8";   // DNS (sección 126)
   char dnsSecondary[16] = "1.1.1.1";
+
+  // Interfaz de red intercambiable (secciones 247-248): el usuario elige entre
+  // WiFi o Ethernet (W5500 por SPI). Solo una queda activa por arranque.
+  NetInterface netInterface = NetInterface::WIFI;
+  int ethCsPin = 5;                  // CS del W5500 (configurable por instalación)
+  bool ethDhcp = true;               // true = DHCP, false = IP estática
+  char ethIp[16] = "";               // IP estática (si ethDhcp=false)
+  char ethGateway[16] = "";
+  char ethMask[16] = "";
+  char ethDns[16] = "";
 
   // Servidor central (sección 128).
   bool managedByCentral = false;

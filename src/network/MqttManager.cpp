@@ -2,8 +2,11 @@
 
 namespace gh {
 
-void MqttManager::begin(const SystemConfig& cfg) {
+void MqttManager::begin(const SystemConfig& cfg, Client* client, bool (*netUp)()) {
   cfg_ = cfg;
+  client_ = client;
+  netUp_ = netUp;
+  if (client_) mqtt_.setClient(*client_);
   baseTopic_ = "greenhouse/" + String(cfg.deviceId);
   enabled_ = (strlen(cfg.mqttHost) > 0);
   if (!enabled_) return;
@@ -17,7 +20,8 @@ void MqttManager::begin(const SystemConfig& cfg) {
 }
 
 void MqttManager::reconnect() {
-  if (!enabled_ || !WiFi.isConnected()) return;
+  if (!enabled_) return;
+  if (netUp_ && !netUp_()) return;
   String id = String(cfg_.deviceId);
   bool ok = false;
   if (strlen(cfg_.mqttUser) > 0) {

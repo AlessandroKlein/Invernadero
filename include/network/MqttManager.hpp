@@ -3,7 +3,7 @@
 // Publica estado/sensores/actuadores/eventos/alarmas y recibe comandos.
 
 #include <Arduino.h>
-#include <WiFi.h>
+#include <Client.h>
 #include <PubSubClient.h>
 
 #include "core/Types.hpp"
@@ -12,7 +12,9 @@ namespace gh {
 
 class MqttManager {
 public:
-  void begin(const SystemConfig& cfg);
+  // client: cliente de red activo (WiFi o Ethernet) provisto por NetworkManager.
+  // netUp: verificación opcional de que la red está disponible antes de reintentar.
+  void begin(const SystemConfig& cfg, Client* client, bool (*netUp)() = nullptr);
   void loop();                                   // Reconexión + suscripción
   bool enabled() const { return enabled_; }
   bool connected() { return enabled_ && mqtt_.connected(); }
@@ -29,8 +31,9 @@ public:
   bool consumeCommand(String& out);
 
 private:
-  WiFiClient client_;
-  PubSubClient mqtt_{client_};
+  Client* client_ = nullptr;
+  bool (*netUp_)() = nullptr;
+  PubSubClient mqtt_;
   bool enabled_ = false;
   String baseTopic_ = "greenhouse/GH001";
   SystemConfig cfg_;
