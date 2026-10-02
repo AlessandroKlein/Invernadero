@@ -7590,10 +7590,12 @@ La automatización continúa funcionando aunque la red desaparezca.**
 
 El proyecto evolucionará hacia una arquitectura similar conceptualmente a sistemas como Tasmota, donde un único firmware pueda utilizarse en diferentes configuraciones de hardware sin necesidad de modificar el código fuente para cada instalación.
 
-> **Configurabilidad (v3.17.0):** la configuración **funcional** es 100 % editable
+> **Configurabilidad (v3.20.0):** la configuración **funcional** es 100 % editable
 > desde la web (sensores/actuadores a habilitar, umbrales, zonas, red, perfiles
-> Modbus). La configuración **de hardware** (pines, modelos de sensor, expansores,
-> direcciones I²C) sigue siendo **compile-time**; ver `docs/MEJORAS.md` §13.
+> Modbus). La configuración **de hardware** avanza hacia runtime: ✅ **pines**
+> editables en `/pins` (NVS) y ✅ **catálogo de sensores** editable
+> (`PUT /api/v1/sensors/catalog`); ❌ queda la instanciación dinámica de drivers y
+> los expansores (74HC165/MCP23S17/ADC). Ver `docs/MEJORAS.md` §13.
 >
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y

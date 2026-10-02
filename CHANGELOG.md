@@ -4,6 +4,15 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.20.0] - 2026-10-02
+
+### Added
+- Catálogo de sensores editable y persistido (paso 2 de la modularidad): el
+  `SensorRegistry` carga/save en NVS (`ghsensors`) y se edita por
+  `PUT /api/v1/sensors/catalog` (protegido). Permite cambiar `enabled`, `address`,
+  `zone`, `bus_index` y `read_interval_ms` por sensor sin recompilar. (La
+  instanciación dinámica de drivers en `SensorManager` es el siguiente paso.)
+
 ## [3.19.0] - 2026-10-02
 
 ### Added

@@ -275,9 +275,11 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
    `PinConfigManager` en NVS (`ghpins`); sensores/actuadores/buses leen pines de
    NVS. Expuesto en `GET/PUT /api/v1/pins` (PUT protegido) y con **formulario web
    editable en `/pins`** (v3.19.0).
-2. **Catálogo de sensores instanciable**: `SensorRegistry` ya modela "driver +
-   bus + address + zone"; falta que el `SensorManager` instancie drivers según
-   el catálogo (hoy usa drivers compilados + flags).
+2. **Catálogo de sensores instanciable** (en curso): ✅ v3.20.0 — el
+   `SensorRegistry` ya es editable y persistido (`PUT /api/v1/sensors/catalog`:
+   `enabled`, `address`, `zone`, `bus_index`, `read_interval_ms`). ❌ Falta que el
+   `SensorManager` instancie/configure los drivers según el catálogo (hoy sigue
+   usando flags de `SystemConfig`).
 3. **Configuración de expansores**: tipo (74HC165/MCP23S17/ADC) + bus + CS/dir +
    canales, editable desde la web (protegido, README §204).
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
