@@ -215,7 +215,7 @@ void SensorManager::update() {
   }
 
   // --- DS18B20 (bus 1-Wire) ---
-  if (cfg_.sensorDs18b20 && ds18b20_.available()) {
+  if (on("temp_18b20", cfg_.sensorDs18b20) && ds18b20_.available()) {
     // Disparar conversión cada 5 s y leer 800 ms después (no bloqueante).
     if (now - lastDs18Request_ > 5000) {
       ds18b20_.requestTemperatures();
@@ -275,7 +275,7 @@ void SensorManager::update() {
   }
 
   // --- Caudal ---
-  if (cfg_.sensorFlow) {
+  if (on("flow", cfg_.sensorFlow)) {
     float rate = flow_.ratePerMinute();
     setValue(S_FLOW, SensorType::FLOW_RATE, "Caudal", 0, true, rate, rate, SensorStatus::OK, "L/min");
   } else {
@@ -283,7 +283,7 @@ void SensorManager::update() {
   }
 
   // --- Tanque ---
-  if (cfg_.sensorTank) {
+  if (on("tank", cfg_.sensorTank)) {
     float lvl = tank_.readLevelPercent();
     if (!isnan(lvl)) setValue(S_TANK, SensorType::TANK_LEVEL, "Tanque", 0, true, lvl, lvl, SensorStatus::OK, "%");
     else setValue(S_TANK, SensorType::TANK_LEVEL, "Tanque", 0, true, 0, 0, SensorStatus::ERROR, "%");
@@ -292,21 +292,21 @@ void SensorManager::update() {
   }
 
   // --- Lluvia ---
-  if (cfg_.sensorRain) {
+  if (on("rain", cfg_.sensorRain)) {
     setValue(S_RAIN, SensorType::RAIN_ACCUM, "Lluvia", 0, true, rain_.accumulated(), 0, SensorStatus::OK, "mm");
   } else {
     setValue(S_RAIN, SensorType::RAIN_ACCUM, "Lluvia", 0, false, 0, 0, SensorStatus::UNKNOWN, "mm");
   }
 
   // --- Viento ---
-  if (cfg_.sensorWind) {
+  if (on("wind", cfg_.sensorWind)) {
     setValue(S_WIND, SensorType::WIND_SPEED, "Viento", 0, true, wind_.ratePerMinute(), 0, SensorStatus::OK, "km/h");
   } else {
     setValue(S_WIND, SensorType::WIND_SPEED, "Viento", 0, false, 0, 0, SensorStatus::UNKNOWN, "km/h");
   }
 
   // --- pH ---
-  if (cfg_.sensorPh) {
+  if (on("ph", cfg_.sensorPh)) {
     float ph;
     if (ph_.read(ph)) setValue(S_PH, SensorType::PH, "pH", 0, true, ph, ph, SensorStatus::OK, "");
     else setValue(S_PH, SensorType::PH, "pH", 0, true, 0, 0, SensorStatus::ERROR, "");
@@ -315,7 +315,7 @@ void SensorManager::update() {
   }
 
   // --- EC ---
-  if (cfg_.sensorEc) {
+  if (on("ec", cfg_.sensorEc)) {
     float ec;
     if (ec_.read(ec)) setValue(S_EC, SensorType::EC, "EC", 0, true, ec, ec, SensorStatus::OK, "mS/cm");
     else setValue(S_EC, SensorType::EC, "EC", 0, true, 0, 0, SensorStatus::ERROR, "mS/cm");
