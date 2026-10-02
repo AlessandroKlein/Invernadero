@@ -24,8 +24,9 @@ Tabla de particiones explícita en `partitions/` (doble app OTA + SPIFFS + cored
 | `default_8MB.csv` | 8 MB | 3,19 MB c/u | 1,5 MB |
 | `default_16MB.csv` | 16 MB | 6,25 MB c/u | 3,375 MB |
 
-Selección en `platformio.ini` vía `board_build.partitions`. Con 4 MB el firmware
-actual ocupa ~73 % de la partición de app; para más margen usar N8/N16.
+Selección en `platformio.ini` vía `board_build.partitions`. El proyecto usa por
+defecto `default_8MB.csv` (8 MB): la app ocupa ~35 % de su partición, dejando
+margen para V8/V9. Con un DevKit/WROOM de 4 MB usar `default.csv` (ajustado).
 
 ## Estructura de módulos
 
@@ -37,8 +38,8 @@ include/ y src/
                            # CapabilityRegistry, ModuleRegistry
   config/                  # ConfigManager (JSON en NVS, versionado + rollback) + Defaults
   storage/                 # History (buffer circular de eventos/alarmas)
-  hardware/                # BusManager, HardwareManager (V8), ShiftRegister595 (soft-PWM),
-                           # Mcp23017 (I²C), ModbusRtu (scan+stats)
+  hardware/                # BusManager, HardwareManager (V8), CanManager (CAN/TWAI),
+                           # ShiftRegister595 (soft-PWM), Mcp23017 (I²C), ModbusRtu (scan+stats)
   sensors/                 # SHT31/AHT20, DS18B20, ADS1115, BH1750, SCD4x(CO₂),
                            # caudal, tanque, lluvia, viento, pH, EC, SensorManager,
                            # SensorRegistry (V8)
@@ -47,7 +48,8 @@ include/ y src/
   control/                 # Climate, Irrigation, Lighting, Roof, Safety
   network/                 # NetworkManager (WiFi/AP/mDNS/NTP), MqttManager
   api/                     # RestApi (REST), WebSocketServer (/ws puerto 81)
-  system/                  # Watchdog, OtaManager, Diagnostics, Device
+  system/                  # Watchdog, HealthMonitor, BootCounters, OtaManager,
+                           # Diagnostics, Device
   web/                     # WebAssets (interfaz embebida servida en /)
 ```
 
@@ -101,6 +103,16 @@ GET  /api/v1/modbus           GET  /api/v1/firmware
 GET  /api/v1/ota              GET  /api/v1/zones
 GET  /api/v1/diagnostics      POST /api/v1/reset
 POST /api/v1/config/rollback
+
+# Plataforma configurable (V8)
+GET  /api/v1/modules          GET  /api/v1/buses
+GET  /api/v1/hardware         GET  /api/v1/sensors/catalog
+GET  /api/v1/actuators/catalog
+
+# Token de API + salud
+POST /api/v1/token/rotate     POST /api/v1/token/revoke
+GET  /api/v1/token/status     GET  /api/v1/health
+GET  /api/v1/boot
 ```
 
 ## Plataforma configurable (V8)
@@ -124,8 +136,20 @@ registran los módulos embebidos y se pueblan los catálogos a partir de
 que la UI, el servidor y la automatización consumirán; el `SensorManager` y el
 `ActuatorManager` siguen aplicando la lectura/control en tiempo de ejecución.
 
+Los registros se exponen por REST (`/api/v1/modules`, `/buses`, `/hardware`,
+`/sensors/catalog`, `/actuators/catalog`). Además:
+
+- **Token de API** (`POST /api/v1/token/rotate|revoke`, `GET /api/v1/token/status`)
+  para autorizar control/modificación desde el servidor central; se gestiona
+  desde la web embebida y se almacena en NVS separado (nunca en el JSON).
+- **Salud y observabilidad**: `HealthMonitor` (heartbeat por tarea, stack HWM,
+  heap) en `/api/v1/health` y `BootCounters` (causas de reinicio) en `/api/v1/boot`.
+- **CAN/TWAI** (`hardware/CanManager`) preparado para V9; requiere transceptor
+  externo SN65HVD23X.
+
 Las decisiones de diseño de V8/V9/servidor central están consolidadas en
-[`docs/DUDAS-Y-DECISIONES.md`](DUDAS-Y-DECISIONES.md).
+[`docs/DUDAS-Y-DECISIONES.md`](DUDAS-Y-DECISIONES.md) y las mejoras recomendadas
+en [`docs/MEJORAS.md`](MEJORAS.md).
 
 ## Documentación (wiki)
 
@@ -138,14 +162,15 @@ Identidad y estados, OTA y actualización, y Compilación y flasheo.
 
 ## Trabajo futuro (fuera del alcance de esta entrega)
 
-- Exponer los registros V8 por REST (`/api/v1/modules`, `/buses`, `/hardware`,
-  `/sensors`, `/actuators`) y en la web embebida.
+- División completa de tareas FreeRTOS con colas (SensorTask/ControlTask/
+  StorageTask/NetworkTask/CommunicationTask) — ver `docs/MEJORAS.md` §2-3.
 - Configuración por capas (FACTORY/HARDWARE/DRIVERS/INSTALLATION/AUTOMATION/USER).
 - V8.1+: SPI Manager, I2C Manager, 74HC165, MCP23S17, ADC Manager, W5500.
 - V8.4: `StorageManager` (LittleFS/SD) y estructura de archivos `/greenhouse/`.
+- V9: perfiles Modbus declarativos + commissioning, sensores industriales,
+  WeatherManager y capa de aplicación CAN.
 - Servidor central (PostgreSQL + dashboard multinvernadero + usuarios/permisos +
   Device Shadow + auditoría + retención de históricos).
 - UI web completa de configuración/asistente por zonas/sensores/actuadores.
-- Variante SPI MCP23S17, Ethernet (interfaz de red intercambiable) y bus CAN/TWAI.
-- Módulos I/O propios Modbus RTU y gateway multi-bus (Ethernet + RS485 + CAN).
+- Variante SPI MCP23S17, Ethernet (interfaz de red intercambiable).
 

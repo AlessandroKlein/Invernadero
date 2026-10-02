@@ -4,6 +4,27 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.9.0] - 2026-10-02
+
+### Added
+- Partición de 8 MB por defecto (margen de flash para la plataforma V8/V9).
+- Exposición de los registros V8 por REST: `/api/v1/modules`, `/api/v1/buses`,
+  `/api/v1/hardware`, `/api/v1/sensors/catalog` y `/api/v1/actuators/catalog`.
+- Token de API generable desde la web de configuración (`ConfigManager` +
+  endpoints `/api/v1/token/{status,rotate,revoke}`) para autorizar control y
+  cambios desde el servidor central; `requireAuth` acepta el token como Bearer.
+- Health monitor por tareas (`system/HealthMonitor`) con heartbeat, stack
+  high-water-mark y heap, expuesto en `GET /api/v1/health`.
+- Contadores de reinicio en NVS (`system/BootCounters`), expuestos en
+  `GET /api/v1/boot`.
+- Suscripción de la tarea de automatización al watchdog de tareas (ESP-IDF).
+- Abstracción CAN/TWAI (`hardware/CanManager`, transceptor SN65HVD23X externo).
+- `docs/MEJORAS.md` con el roadmap de mejoras derivado de SEMA.
+
+### Changed
+- El `Watchdog` ahora permite suscribir tareas adicionales (`subscribe()`).
+- Documentación de implementación y estructura de módulos actualizada.
+
 ## [3.8.0] - 2026-10-02
 
 ### Added

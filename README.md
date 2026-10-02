@@ -7590,6 +7590,14 @@ La automatización continúa funcionando aunque la red desaparezca.**
 
 El proyecto evolucionará hacia una arquitectura similar conceptualmente a sistemas como Tasmota, donde un único firmware pueda utilizarse en diferentes configuraciones de hardware sin necesidad de modificar el código fuente para cada instalación.
 
+> **Avance v3.9.0:** la base de la plataforma ya está implementada —
+> `BusManager`, `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`,
+> `SensorRegistry` y `ActuatorRegistry` — junto con su exposición por REST
+> (`/api/v1/modules`, `/buses`, `/hardware`, `/sensors/catalog`,
+> `/actuators/catalog`), token de API para el servidor central, health monitor
+> por tareas, contadores de reinicio y abstracción CAN/TWAI. Ver
+> `docs/IMPLEMENTACION.md` y `docs/MEJORAS.md`.
+
 La diferencia fundamental será que el proyecto estará orientado específicamente a:
 
 * automatización de invernaderos;
