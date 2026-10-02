@@ -9,7 +9,7 @@
 
 ---
 
-## 1. Resumen (v3.9.0 → v3.11.0)
+## 1. Resumen (v3.9.0 → v3.15.0)
 
 | Mejora | Estado |
 |--------|--------|
@@ -27,9 +27,13 @@
 | `Logger` estructurado + `EventBus` + `Scheduler` por capacidades | ✅ v3.11.0 |
 | SD (backend de `StorageManager`) | ✅ v3.11.0 |
 | Tipos de configuración por capas (`ConfigLayer`) | ✅ v3.11.0 |
-| W5500 Ethernet (librería SPI + interfaz de red intercambiable) | ❌ pendiente |
-| Configuración por capas: merge/migraciones completos | ❌ pendiente |
-| Store & Forward + sincronización incremental (`sequence_id`) | ❌ pendiente (servidor) |
+| Multi-board + página `/pins` | ✅ v3.12.0 |
+| Interfaz WiFi/Ethernet intercambiable (W5500): conexión + MQTT | ✅ v3.13.0 |
+| Configuración por capas: `schema_version` + migraciones + merge | ✅ v3.14.0 |
+| Servidor: rate limiting + CORS + Store & Forward (`sequence_id`) | ✅ rama `server` |
+| Autodetección guiada (escaneo I²C → `/api/v1/detect`) | ✅ v3.15.0 |
+| HTTP/OTA sobre Ethernet (W5500) | ⚠️ bloqueado (ver §10) |
+| Gateway RS485 (polling multi-esclavo por perfiles) | ❌ pendiente |
 
 ---
 
@@ -170,9 +174,22 @@ función sin tocar el driver. Implica `schema_version` + migraciones.
 
 ## 9. Prioridad sugerida
 
-1. Proteger `SensorManager` (snapshot por cola) y dividir `SensorTask`/`ControlTask`.
-2. Perfiles Modbus declarativos + commissioning (V9).
-3. Configuración por capas + `schema_version`/migraciones.
-4. Event Bus + scheduler por capacidades.
-5. Store & Forward + sincronización incremental con el servidor.
-6. Integración CAN de aplicación (tras definir hardware).
+1. Gateway RS485 (polling multi-esclavo por perfiles).
+2. HTTP/OTA sobre Ethernet (desbloquear §10).
+3. Integración CAN de aplicación (tras definir hardware).
+
+## 10. HTTP/OTA sobre Ethernet — bloqueo técnico (registrado)
+
+El `HTTPClient` del ESP32 solo acepta `WiFiClient`
+(`bool begin(WiFiClient &client, ...)`), mientras que el `EthernetClient` del
+W5500 (librería clásica `arduino-libraries/Ethernet`) deriva de `Client`, no de
+`WiFiClient`. Por eso **MQTT sí funciona por Ethernet** (PubSubClient acepta
+`Client&`), pero **HTTP/OTA no**.
+
+### Vías para resolverlo (más adelante)
+
+1. **Cliente HTTP propio** sobre `EthernetClient` (sin TLS; HTTP plano).
+2. **ETH nativo (LAN8720)** en lugar de W5500: integra con la pila lwIP y
+   `HTTPClient`, habilitando HTTP y OTA (y TLS vía `WiFiClientSecure`/mbedTLS).
+
+Se deja registrado para atacarlo cuando se defina el hardware de red definitivo.
