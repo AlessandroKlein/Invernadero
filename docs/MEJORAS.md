@@ -287,10 +287,11 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
 > de sensores/actuadores sigue abierto al público para configurar su instalación.
 3. **Configuración de expansores** (en curso):
    - ✅ v3.24.0 — `HardwareManager` editable y persistido (`PUT /api/v1/hardware`).
-   - ✅ v3.25.0 — el driver **MCP23017 se instancia desde el catálogo** (nodo
-     `mcp23017-0`: `address` + `enabled`).
-   - ❌ Falta: pool de drivers para **agregar** expansores (74HC165, múltiples
-     MCP23S17, ADC) y la **asignación de canales a actuadores**.
+   - ✅ v3.25.0 — el driver **MCP23017 se instancia desde el catálogo**.
+   - ✅ v3.26.0 — **pool de MCP23017** (hasta 4) + `PUT /api/v1/hardware` permite
+     **agregar** nodos de tipos conocidos (HC595/HC165/MCP23017/MCP23S17/ADC).
+   - ❌ Falta: pools para 74HC165/MCP23S17/ADC y la **asignación de canales a
+     actuadores** (hoy `ActuatorManager` usa solo `mcpPool[0]`).
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
 
 ### Impacto

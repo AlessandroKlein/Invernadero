@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.26.0] - 2026-10-02
+
+### Added
+- Pool de expansores MCP23017 (hasta 4) instanciados desde el catálogo
+  (`PUT /api/v1/hardware` ahora permite **agregar** nodos de tipos conocidos:
+  HC595/HC165/MCP23017/MCP23S17/ADC). Cada nodo MCP23017 habilitado ocupa un slot.
+
 ## [3.25.0] - 2026-10-02
 
 ### Changed
