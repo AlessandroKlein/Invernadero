@@ -4,6 +4,20 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.13.0] - 2026-10-02
+
+### Added
+- Interfaz de red intercambiable WiFi/Ethernet (W5500 por SPI): el usuario elige
+  en configuración (`net_interface`). `NetworkManager` expone un `Client*`
+  genérico y `MqttManager` lo usa para conectarse por WiFi o Ethernet.
+- Configuración Ethernet en `SystemConfig`/JSON: `net_interface`, `eth_cs`,
+  `eth_dhcp`, `eth_ip`, `eth_gateway`, `eth_mask`, `eth_dns`.
+- Dependencia `arduino-libraries/Ethernet@^2.0.0` para el W5500.
+
+### Changed
+- `MqttManager` recibe el cliente de red activo y una verificación de red
+  (`begin(cfg, Client*, netUp)`).
+
 ## [3.12.0] - 2026-10-02
 
 ### Added
