@@ -9,15 +9,22 @@
 #include "core/Types.hpp"
 #include "core/PinMap.hpp"
 #include "core/Version.hpp"
+#include "core/PlatformTypes.hpp"
+#include "core/CapabilityRegistry.hpp"
+#include "core/ModuleRegistry.hpp"
 
 #include "config/ConfigManager.hpp"
 #include "storage/History.hpp"
 
 #include "hardware/ShiftRegister595.hpp"
 #include "hardware/Mcp23017.hpp"
+#include "hardware/BusManager.hpp"
+#include "hardware/HardwareManager.hpp"
 
 #include "sensors/SensorManager.hpp"
+#include "sensors/SensorRegistry.hpp"
 #include "actuators/ActuatorManager.hpp"
+#include "actuators/ActuatorRegistry.hpp"
 
 #include "control/ClimateController.hpp"
 #include "control/IrrigationController.hpp"
@@ -44,6 +51,12 @@ using namespace gh;
 struct App {
   ConfigManager config;
   History history;
+  // Plataforma configurable (V8): buses/hardware y registros dinámicos.
+  CapabilityRegistry capabilities;
+  ModuleRegistry modules;
+  HardwareManager hardware;
+  SensorRegistry sensorRegistry;
+  ActuatorRegistry actuatorRegistry;
   ShiftRegister595 shift;
   Mcp23017 mcp;
   SensorManager sensors;
@@ -97,13 +110,25 @@ void setup() {
   // 2) Historial.
   app.history.begin(128);
 
+  // 2.5) Plataforma configurable (V8): capacidades, módulos y catálogos.
+  {
+    SystemConfig pc = app.config.get();
+    app.capabilities.syncFrom(Device::info(pc));
+    app.modules.registerBuiltins();
+    app.sensorRegistry.buildFromConfig(pc);
+    app.actuatorRegistry.buildFromConfig(pc);
+    Serial.printf("[BOOT] Capacidades: %u | Módulos: %u | Sensores: %u | Actuadores: %u\n",
+                  app.capabilities.count(), app.modules.count(),
+                  app.sensorRegistry.count(), app.actuatorRegistry.count());
+  }
+
   // 3) Hardware de salida: 74HC595 (SPI) + MCP23017 (I²C).
   app.shift.begin(pins::HC595_MOSI, pins::HC595_SCLK, pins::HC595_LATCH, pins::HC595_COUNT);
   app.shift.allOff(); // estado seguro al arrancar (sección 21.14)
   // Soft-PWM deshabilitado por defecto (modo digital ON/OFF seguro). Para PWM
   // de alta frecuencia se recomienda LEDC en GPIO o controlador dedicado.
   // app.shift.setPwmEnabled(true, 200, 8);
-  Wire.begin(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_FREQ);
+  app.hardware.begin(); // inicia los buses (I²C) y registra los nodos de hardware
   app.mcp.begin(pins::I2C_ADDR_MCP23017_1, &Wire);
 
   // 4) Sensores y actuadores.

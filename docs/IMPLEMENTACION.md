@@ -33,13 +33,17 @@ actual ocupa ~73 % de la partición de app; para más margen usar N8/N16.
 src/
   main.cpp                 # cableado + tarea de automatización (FreeRTOS)
 include/ y src/
-  core/                    # Types, PinMap, Version (FW/HW/esquema centralizados)
+  core/                    # Types, PinMap, Version, PlatformTypes (V8),
+                           # CapabilityRegistry, ModuleRegistry
   config/                  # ConfigManager (JSON en NVS, versionado + rollback) + Defaults
   storage/                 # History (buffer circular de eventos/alarmas)
-  hardware/                # ShiftRegister595 (soft-PWM), Mcp23017 (I²C), ModbusRtu (scan+stats)
+  hardware/                # BusManager, HardwareManager (V8), ShiftRegister595 (soft-PWM),
+                           # Mcp23017 (I²C), ModbusRtu (scan+stats)
   sensors/                 # SHT31/AHT20, DS18B20, ADS1115, BH1750, SCD4x(CO₂),
-                           # caudal, tanque, lluvia, viento, pH, EC, SensorManager
-  actuators/               # ActuatorManager (bomba, válvulas, ventiladores, ...)
+                           # caudal, tanque, lluvia, viento, pH, EC, SensorManager,
+                           # SensorRegistry (V8)
+  actuators/               # ActuatorManager (bomba, válvulas, ventiladores, ...),
+                           # ActuatorRegistry (V8)
   control/                 # Climate, Irrigation, Lighting, Roof, Safety
   network/                 # NetworkManager (WiFi/AP/mDNS/NTP), MqttManager
   api/                     # RestApi (REST), WebSocketServer (/ws puerto 81)
@@ -99,6 +103,30 @@ GET  /api/v1/diagnostics      POST /api/v1/reset
 POST /api/v1/config/rollback
 ```
 
+## Plataforma configurable (V8)
+
+Base de la plataforma configurable (README §201–285), implementada como módulos
+independientes y no intrusivos sobre el firmware de campo existente:
+
+| Componente | Archivo | Responsabilidad |
+|------------|---------|-----------------|
+| `PlatformTypes` | `core/PlatformTypes.hpp` | Tipos de buses, módulos, nodos de hardware y catálogos. |
+| `CapabilityRegistry` | `core/CapabilityRegistry.*` | Conjunto de capacidades (`wifi`, `i2c`, `temperature`, ...). |
+| `ModuleRegistry` | `core/ModuleRegistry.*` | Módulos embebidos (id/versión/dependencias/capacidades/estado). |
+| `BusManager` | `hardware/BusManager.*` | Registro, propiedad y estado de buses; escaneo I²C. |
+| `HardwareManager` | `hardware/HardwareManager.*` | Catálogo de nodos de hardware + buses. |
+| `SensorRegistry` | `sensors/SensorRegistry.*` | Catálogo configurable de sensores. |
+| `ActuatorRegistry` | `actuators/ActuatorRegistry.*` | Catálogo configurable de actuadores. |
+
+En el arranque se sincronizan las capacidades desde `Device::info()`, se
+registran los módulos embebidos y se pueblan los catálogos a partir de
+`SystemConfig` (resumen por Serial). Los registros son el modelo de "qué hay"
+que la UI, el servidor y la automatización consumirán; el `SensorManager` y el
+`ActuatorManager` siguen aplicando la lectura/control en tiempo de ejecución.
+
+Las decisiones de diseño de V8/V9/servidor central están consolidadas en
+[`docs/DUDAS-Y-DECISIONES.md`](DUDAS-Y-DECISIONES.md).
+
 ## Documentación (wiki)
 
 La documentación completa está publicada en el **wiki** del repositorio:
@@ -110,8 +138,13 @@ Identidad y estados, OTA y actualización, y Compilación y flasheo.
 
 ## Trabajo futuro (fuera del alcance de esta entrega)
 
+- Exponer los registros V8 por REST (`/api/v1/modules`, `/buses`, `/hardware`,
+  `/sensors`, `/actuators`) y en la web embebida.
+- Configuración por capas (FACTORY/HARDWARE/DRIVERS/INSTALLATION/AUTOMATION/USER).
+- V8.1+: SPI Manager, I2C Manager, 74HC165, MCP23S17, ADC Manager, W5500.
+- V8.4: `StorageManager` (LittleFS/SD) y estructura de archivos `/greenhouse/`.
 - Servidor central (PostgreSQL + dashboard multinvernadero + usuarios/permisos +
-  Device Shadow + auditoría).
+  Device Shadow + auditoría + retención de históricos).
 - UI web completa de configuración/asistente por zonas/sensores/actuadores.
 - Variante SPI MCP23S17, Ethernet (interfaz de red intercambiable) y bus CAN/TWAI.
 - Módulos I/O propios Modbus RTU y gateway multi-bus (Ethernet + RS485 + CAN).

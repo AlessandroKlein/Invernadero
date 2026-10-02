@@ -4,6 +4,23 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.8.0] - 2026-10-02
+
+### Added
+- Base de la plataforma configurable (V8): `CapabilityRegistry`, `ModuleRegistry`,
+  `BusManager` (I²C/SPI/UART/RS485/1-Wire/GPIO/CAN), `HardwareManager`,
+  `SensorRegistry` y `ActuatorRegistry`.
+- Tipos de plataforma en `core/PlatformTypes.hpp` (buses, módulos, nodos de
+  hardware, catálogos de sensores/actuadores).
+- Escaneo I²C desde `BusManager` y arranque del bus I²C centralizado en él.
+- Registro en tiempo de ejecución de capacidades, módulos embebidos y catálogos
+  derivados de `SystemConfig` (con resumen por Serial en el arranque).
+
+### Changed
+- La inicialización del bus I²C (`Wire.begin`) se centraliza en `BusManager`
+  en lugar de hacerse directamente en `main.cpp`.
+- Decisiones arquitectónicas consolidadas en `docs/DUDAS-Y-DECISIONES.md`.
+
 ## [3.7.0] - 2026-09-29
 
 ### Added
