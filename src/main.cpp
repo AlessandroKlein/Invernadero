@@ -71,7 +71,7 @@ struct App {
   PinConfig pinConfig;
   StorageManager storage;
   ShiftRegister595 shift;
-  Mcp23017 mcp;
+  Mcp23017 mcpPool[4];  // pool de expansores I²C instanciados desde el catálogo
   SensorManager sensors;
   ActuatorManager actuators;
   ClimateController climate;
@@ -219,23 +219,24 @@ void setup() {
   app.hardware.begin(app.pinConfig); // inicia los buses (I²C) y registra los nodos de hardware
   app.hardware.load(); // aplica ediciones del catálogo de expansores (NVS)
 
-  // Instanciación del expansor MCP23017 desde el catálogo (paso 3): la dirección
-  // y el "enabled" vienen del nodo "mcp23017-0" (editable por PUT /api/v1/hardware),
-  // no de PinConfig. Si el nodo está deshabilitado, el driver no se inicia.
+  // Pool de expansores MCP23017 (I²C) instanciados desde el catálogo (paso 3):
+  // cada nodo MCP23017 habilitado ocupa un slot; el canal 0 queda en mcpPool[0]
+  // (usado por ActuatorManager). Los nodos se agregan/editan por PUT /api/v1/hardware.
   {
-    HardwareNode mcp;
-    uint8_t mcpAddr = app.pinConfig.i2cAddrMcp23017;
-    bool mcpOn = true;
-    if (app.hardware.getNode("mcp23017-0", mcp)) {
-      mcpAddr = mcp.address;
-      mcpOn = mcp.enabled;
+    HardwareNode hwNodes[HardwareManager::MAX_NODES];
+    size_t hwN = 0;
+    app.hardware.snapshot(hwNodes, HardwareManager::MAX_NODES, hwN);
+    uint8_t mcpCount = 0;
+    for (size_t i = 0; i < hwN && mcpCount < 4; i++) {
+      if (hwNodes[i].kind == HardwareKind::MCP23017 && hwNodes[i].enabled) {
+        app.mcpPool[mcpCount++].begin(hwNodes[i].address, &Wire);
+      }
     }
-    if (mcpOn) app.mcp.begin(mcpAddr, &Wire);
   }
 
   // 4) Sensores y actuadores.
   app.sensors.begin(app.config.get(), app.pinConfig, &app.sensorRegistry);
-  app.actuators.begin(app.config.get(), &app.shift, &app.mcp);
+  app.actuators.begin(app.config.get(), &app.shift, &app.mcpPool[0]);
   app.actuators.allSafeState();
   Device::setState(DeviceState::SELF_TEST);
 

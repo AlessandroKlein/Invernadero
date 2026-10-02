@@ -110,17 +110,54 @@ String HardwareManager::toJson() const {
   return out;
 }
 
+static HardwareKind hwKindFromString(const char* s) {
+  if (!s) return HardwareKind::NONE;
+  if (strcmp(s, "HC595") == 0) return HardwareKind::HC595;
+  if (strcmp(s, "HC165") == 0) return HardwareKind::HC165;
+  if (strcmp(s, "MCP23017") == 0) return HardwareKind::MCP23017;
+  if (strcmp(s, "MCP23S17") == 0) return HardwareKind::MCP23S17;
+  if (strcmp(s, "ADC") == 0) return HardwareKind::ADC;
+  return HardwareKind::NONE;
+}
+
+// Deriva el bus por defecto según el tipo de expansor.
+static BusType busForKind(HardwareKind k) {
+  switch (k) {
+    case HardwareKind::MCP23017: return BusType::I2C;
+    case HardwareKind::MCP23S17:
+    case HardwareKind::HC595:
+    case HardwareKind::HC165:    return BusType::SPI;
+    case HardwareKind::ADC:      return BusType::I2C;
+    default:                     return BusType::NONE;
+  }
+}
+
 bool HardwareManager::fromJson(const String& json) {
   DynamicJsonDocument doc(4096);
   if (deserializeJson(doc, json)) return false;
   if (!doc.is<JsonArray>()) return false;
   for (JsonObject o : doc.as<JsonArray>()) {
     const char* id = o["id"] | "";
+    if (!id || id[0] == '\0') continue;
     HardwareNode n;
-    if (!getNode(id, n)) continue;  // solo actualizar nodos existentes
+    bool exists = getNode(id, n);
+    if (!exists) {
+      // Nuevo nodo: solo se agregan expansores de tipo conocido (no hardware arbitrario).
+      HardwareKind kind = hwKindFromString(o["kind"] | "");
+      if (kind == HardwareKind::NONE) continue;
+      n.id[0] = '\0';
+      strncpy(n.id, id, sizeof(n.id) - 1);
+      n.kind = kind;
+      n.bus = busForKind(kind);
+      n.enabled = false;
+      n.address = 0;
+      n.busIndex = 0;
+    }
     n.enabled = o["enabled"] | n.enabled;
     n.address = o["address"] | n.address;
     n.busIndex = o["bus_index"] | n.busIndex;
+    const char* owner = o["owner"] | "";
+    if (owner[0]) strncpy(n.owner, owner, sizeof(n.owner) - 1);
     registerNode(n);
   }
   return true;
