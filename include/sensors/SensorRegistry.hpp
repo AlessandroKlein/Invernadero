@@ -6,6 +6,7 @@
 // de "qué sensores hay" que consultan la UI, el servidor y la automatización.
 
 #include <Arduino.h>
+#include <Preferences.h>
 
 #include "core/PlatformTypes.hpp"
 
@@ -28,9 +29,16 @@ public:
   void snapshot(SensorEntry* out, size_t max, size_t& n) const;
   String toJson() const;
 
+  // Edita el catálogo desde JSON (actualiza entradas existentes por id). Se
+  // ignoran ids desconocidos para no permitir inyectar drivers inexistentes.
+  bool fromJson(const String& json);
+  void load();   // carga el catálogo editado desde NVS
+  void save();   // guarda el catálogo en NVS
+
 private:
   SensorEntry entries_[MAX_ENTRIES];
   uint8_t count_ = 0;
+  mutable Preferences prefs_;
   int8_t find(const char* id) const;
 };
 

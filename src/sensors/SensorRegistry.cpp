@@ -110,6 +110,37 @@ String SensorRegistry::toJson() const {
   return out;
 }
 
+bool SensorRegistry::fromJson(const String& json) {
+  DynamicJsonDocument doc(4096);
+  if (deserializeJson(doc, json)) return false;
+  if (!doc.is<JsonArray>()) return false;
+  for (JsonObject o : doc.as<JsonArray>()) {
+    const char* id = o["id"] | "";
+    SensorEntry e;
+    if (!get(id, e)) continue;  // solo actualizar entradas existentes (driver conocido)
+    e.enabled = o["enabled"] | e.enabled;
+    e.address = o["address"] | e.address;
+    e.zone = o["zone"] | e.zone;
+    e.busIndex = o["bus_index"] | e.busIndex;
+    e.readIntervalMs = o["read_interval_ms"] | e.readIntervalMs;
+    registerSensor(e);
+  }
+  return true;
+}
+
+void SensorRegistry::load() {
+  prefs_.begin("ghsensors", false);
+  String j = prefs_.getString("catalog", "");
+  prefs_.end();
+  if (j.length() > 0) fromJson(j);
+}
+
+void SensorRegistry::save() {
+  prefs_.begin("ghsensors", false);
+  prefs_.putString("catalog", toJson());
+  prefs_.end();
+}
+
 int8_t SensorRegistry::find(const char* id) const {
   if (id == nullptr) return -1;
   for (uint8_t i = 0; i < count_; i++) {

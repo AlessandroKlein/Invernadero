@@ -182,6 +182,7 @@ void setup() {
     app.capabilities.syncFrom(Device::info(pc));
     app.modules.registerBuiltins();
     app.sensorRegistry.buildFromConfig(pc);
+    app.sensorRegistry.load();  // aplica ediciones del catálogo guardadas en NVS
     app.actuatorRegistry.buildFromConfig(pc);
 
     // Perfiles Modbus de ejemplo (V9): pH y EC genéricos por RS485.

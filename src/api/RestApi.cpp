@@ -76,6 +76,7 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/buses", HTTP_GET, [this]() { handleBuses(); });
   server_.on("/api/v1/hardware", HTTP_GET, [this]() { handleHardware(); });
   server_.on("/api/v1/sensors/catalog", HTTP_GET, [this]() { handleSensorCatalog(); });
+  server_.on("/api/v1/sensors/catalog", HTTP_PUT, [this]() { handleSensorCatalog(); });
   server_.on("/api/v1/actuators/catalog", HTTP_GET, [this]() { handleActuatorCatalog(); });
   server_.on("/api/v1/token/status", HTTP_GET, [this]() { if (requireAuth()) handleTokenStatus(); });
   server_.on("/api/v1/token/rotate", HTTP_POST, [this]() { if (requireAuth()) handleTokenRotate(); });
@@ -120,6 +121,16 @@ void RestApi::handleHardware() {
 }
 
 void RestApi::handleSensorCatalog() {
+  if (server_.method() == HTTP_PUT) {
+    if (!requireAuth()) return;
+    if (!sensorReg_ || !sensorReg_->fromJson(server_.arg("plain"))) {
+      server_.send(400, "application/json", "{\"error\":\"invalid json\"}");
+      return;
+    }
+    sensorReg_->save();
+    server_.send(200, "application/json", "{\"ok\":true}");
+    return;
+  }
   server_.send(200, "application/json", sensorReg_ ? sensorReg_->toJson() : "[]");
 }
 
