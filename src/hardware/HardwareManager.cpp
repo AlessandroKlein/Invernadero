@@ -110,6 +110,35 @@ String HardwareManager::toJson() const {
   return out;
 }
 
+bool HardwareManager::fromJson(const String& json) {
+  DynamicJsonDocument doc(4096);
+  if (deserializeJson(doc, json)) return false;
+  if (!doc.is<JsonArray>()) return false;
+  for (JsonObject o : doc.as<JsonArray>()) {
+    const char* id = o["id"] | "";
+    HardwareNode n;
+    if (!getNode(id, n)) continue;  // solo actualizar nodos existentes
+    n.enabled = o["enabled"] | n.enabled;
+    n.address = o["address"] | n.address;
+    n.busIndex = o["bus_index"] | n.busIndex;
+    registerNode(n);
+  }
+  return true;
+}
+
+void HardwareManager::load() {
+  prefs_.begin("ghhw", false);
+  String j = prefs_.getString("nodes", "");
+  prefs_.end();
+  if (j.length() > 0) fromJson(j);
+}
+
+void HardwareManager::save() {
+  prefs_.begin("ghhw", false);
+  prefs_.putString("nodes", toJson());
+  prefs_.end();
+}
+
 int8_t HardwareManager::findNode(const char* id) const {
   if (id == nullptr) return -1;
   for (uint8_t i = 0; i < nodeCount_; i++) {

@@ -217,6 +217,7 @@ void setup() {
   // de alta frecuencia se recomienda LEDC en GPIO o controlador dedicado.
   // app.shift.setPwmEnabled(true, 200, 8);
   app.hardware.begin(app.pinConfig); // inicia los buses (I²C) y registra los nodos de hardware
+  app.hardware.load(); // aplica ediciones del catálogo de expansores (NVS)
   app.mcp.begin(app.pinConfig.i2cAddrMcp23017, &Wire);
 
   // 4) Sensores y actuadores.

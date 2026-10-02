@@ -5,6 +5,7 @@
 // (automatización), el principio rector de la plataforma configurable.
 
 #include <Arduino.h>
+#include <Preferences.h>
 
 #include "core/PlatformTypes.hpp"
 #include "core/PinConfig.hpp"
@@ -38,10 +39,16 @@ public:
   void snapshot(HardwareNode* out, size_t max, size_t& n) const;
   String toJson() const;
 
+  // Edita el catálogo de nodos/expansores desde JSON (actualiza por id).
+  bool fromJson(const String& json);
+  void load();   // carga el catálogo editado desde NVS
+  void save();   // guarda el catálogo en NVS
+
 private:
   BusManager buses_;
   HardwareNode nodes_[MAX_NODES];
   uint8_t nodeCount_ = 0;
+  mutable Preferences prefs_;
   int8_t findNode(const char* id) const;
 };
 
