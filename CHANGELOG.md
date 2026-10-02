@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.25.0] - 2026-10-02
+
+### Changed
+- El driver MCP23017 se instancia desde el catálogo de expansores (nodo
+  `mcp23017-0`: `address` + `enabled` editables por `PUT /api/v1/hardware`),
+  en lugar de leer la dirección de `PinConfig`.
+
 ## [3.24.0] - 2026-10-02
 
 ### Added

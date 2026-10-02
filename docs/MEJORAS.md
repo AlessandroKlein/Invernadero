@@ -285,10 +285,12 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
 > **Bloqueo de pines (v3.22.0):** `GH_PINS_LOCKED` (0 público / 1 PCB fija). Con
 > PCB fija, los pines no se editan (web bloqueada, `PUT` → 403), pero el catálogo
 > de sensores/actuadores sigue abierto al público para configurar su instalación.
-3. **Configuración de expansores** (en curso): ✅ v3.24.0 — `HardwareManager`
-   editable y persistido (`PUT /api/v1/hardware`: `enabled`, `address`,
-   `bus_index` por nodo). ❌ Falta: agregar/instanciar expansores nuevos
-   (74HC165/MCP23S17/ADC) y sus canales desde el catálogo.
+3. **Configuración de expansores** (en curso):
+   - ✅ v3.24.0 — `HardwareManager` editable y persistido (`PUT /api/v1/hardware`).
+   - ✅ v3.25.0 — el driver **MCP23017 se instancia desde el catálogo** (nodo
+     `mcp23017-0`: `address` + `enabled`).
+   - ❌ Falta: pool de drivers para **agregar** expansores (74HC165, múltiples
+     MCP23S17, ADC) y la **asignación de canales a actuadores**.
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
 
 ### Impacto
