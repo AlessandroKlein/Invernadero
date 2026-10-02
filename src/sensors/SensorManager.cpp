@@ -88,27 +88,38 @@ void SensorManager::setValue(uint8_t idx, SensorType t, const char* name, uint8_
 
 // --- Getters tipados ---
 
-float SensorManager::temperature() const { return values_[S_TEMP].value; }
-float SensorManager::humidity() const { return values_[S_HUM].value; }
-float SensorManager::exteriorTemperature() const { return values_[S_EXT_TEMP].value; }
-float SensorManager::exteriorHumidity() const { return values_[S_EXT_HUM].value; }
+// Lectura protegida: permite que ControlTask (núcleo 0) lea mientras SensorTask
+// escribe. Se protege cada acceso individual; un ciclo de control puede ver una
+// mezcla de valores de dos ciclos consecutivos (cadencia de 2 s), lo cual es
+// aceptable para control por histéresis.
+float SensorManager::valueAt(uint8_t idx) const {
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  float v = values_[idx].value;
+  if (mutex_) xSemaphoreGive(mutex_);
+  return v;
+}
+
+float SensorManager::temperature() const { return valueAt(S_TEMP); }
+float SensorManager::humidity() const { return valueAt(S_HUM); }
+float SensorManager::exteriorTemperature() const { return valueAt(S_EXT_TEMP); }
+float SensorManager::exteriorHumidity() const { return valueAt(S_EXT_HUM); }
 
 float SensorManager::soilMoisture(uint8_t zone) const {
   if (zone >= MAX_SOIL_ZONES) return NAN;
-  return values_[S_SOIL + zone].value;
+  return valueAt(S_SOIL + zone);
 }
 
-float SensorManager::lightLux() const { return values_[S_LIGHT].value; }
-float SensorManager::co2() const { return values_[S_CO2].value; }
-float SensorManager::flowRate() const { return values_[S_FLOW].value; }
+float SensorManager::lightLux() const { return valueAt(S_LIGHT); }
+float SensorManager::co2() const { return valueAt(S_CO2); }
+float SensorManager::flowRate() const { return valueAt(S_FLOW); }
 float SensorManager::flowAccumulated() const { return flow_.accumulated(); }
-float SensorManager::tankLevel() const { return values_[S_TANK].value; }
+float SensorManager::tankLevel() const { return valueAt(S_TANK); }
 bool SensorManager::floatLow() const { return digitalRead(pins::FLOAT_LOW_PIN) == LOW; }
 bool SensorManager::floatHigh() const { return digitalRead(pins::FLOAT_HIGH_PIN) == LOW; }
-float SensorManager::rainAccum() const { return values_[S_RAIN].value; }
-float SensorManager::windSpeed() const { return values_[S_WIND].value; }
-float SensorManager::ph() const { return values_[S_PH].value; }
-float SensorManager::ec() const { return values_[S_EC].value; }
+float SensorManager::rainAccum() const { return valueAt(S_RAIN); }
+float SensorManager::windSpeed() const { return valueAt(S_WIND); }
+float SensorManager::ph() const { return valueAt(S_PH); }
+float SensorManager::ec() const { return valueAt(S_EC); }
 
 // Variables calculadas (sección 235): derivadas de temperatura + humedad.
 float SensorManager::vpd() const { return calc::vpd(temperature(), humidity()); }
@@ -116,7 +127,10 @@ float SensorManager::dewPoint() const { return calc::dewPoint(temperature(), hum
 
 SensorStatus SensorManager::statusOf(uint8_t idx) const {
   if (idx >= MAX_SENSORS) return SensorStatus::UNKNOWN;
-  return values_[idx].status;
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  SensorStatus s = values_[idx].status;
+  if (mutex_) xSemaphoreGive(mutex_);
+  return s;
 }
 
 // Convierte lectura ADC de humedad de suelo a % usando calibración seca/húmeda.

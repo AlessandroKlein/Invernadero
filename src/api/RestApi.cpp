@@ -81,6 +81,8 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/token/revoke", HTTP_POST, [this]() { if (requireAuth()) handleTokenRevoke(); });
   server_.on("/api/v1/health", HTTP_GET, [this]() { handleHealth(); });
   server_.on("/api/v1/boot", HTTP_GET, [this]() { handleBoot(); });
+  server_.on("/api/v1/storage", HTTP_GET, [this]() { handleStorage(); });
+  server_.on("/api/v1/modbus/profiles", HTTP_GET, [this]() { handleModbusProfiles(); });
 }
 
 void RestApi::handleRoot() {
@@ -138,6 +140,14 @@ void RestApi::handleHealth() {
 
 void RestApi::handleBoot() {
   server_.send(200, "application/json", boot_ ? boot_->toJson() : "{}");
+}
+
+void RestApi::handleStorage() {
+  server_.send(200, "application/json", storage_ ? storage_->toJson() : "{}");
+}
+
+void RestApi::handleModbusProfiles() {
+  server_.send(200, "application/json", modbusProfiles_ ? modbusProfiles_->toJson() : "{}");
 }
 
 void RestApi::handleStatus() {

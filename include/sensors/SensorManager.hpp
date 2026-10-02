@@ -104,6 +104,8 @@ private:
 
   void setValue(uint8_t idx, SensorType t, const char* name, uint8_t zone,
                 bool enabled, float val, float raw, SensorStatus st, const char* unit);
+  // Lectura protegida de un slot (thread-safe entre SensorTask y ControlTask).
+  float valueAt(uint8_t idx) const;
 };
 
 } // namespace gh

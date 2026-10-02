@@ -15,6 +15,7 @@
 
 #include "config/ConfigManager.hpp"
 #include "storage/History.hpp"
+#include "storage/StorageManager.hpp"
 
 #include "hardware/ShiftRegister595.hpp"
 #include "hardware/Mcp23017.hpp"
@@ -23,6 +24,7 @@
 
 #include "sensors/SensorManager.hpp"
 #include "sensors/SensorRegistry.hpp"
+#include "sensors/ModbusProfileRegistry.hpp"
 #include "actuators/ActuatorManager.hpp"
 #include "actuators/ActuatorRegistry.hpp"
 
@@ -59,6 +61,8 @@ struct App {
   HardwareManager hardware;
   SensorRegistry sensorRegistry;
   ActuatorRegistry actuatorRegistry;
+  ModbusProfileRegistry modbusProfiles;
+  StorageManager storage;
   ShiftRegister595 shift;
   Mcp23017 mcp;
   SensorManager sensors;
@@ -81,18 +85,36 @@ struct App {
 };
 static App app;
 
-// Tarea de automatización (núcleo 0): adquisición + control + salidas. Se mantiene
-// como una única tarea atómica porque los controladores leen los accesores del
-// SensorManager de forma secuencial (sin IPC entre tareas); la separación en
-// SensorTask/ControlTask con colas queda como siguiente refactor (ver docs/MEJORAS.md).
-static void automationTask(void* arg) {
-  (void)arg;
-  app.watchdog.subscribe();                       // vigilar esta tarea (SEMA §132)
-  app.health.registerTask("automation", xTaskGetCurrentTaskHandle());
-  for (;;) {
-    SystemConfig cfg = app.config.get();
+// Semáforo sensor→control: el control solo corre tras una lectura fresca.
+static SemaphoreHandle_t sensorReady = nullptr;
 
-    app.sensors.update();          // Leer sensores habilitados
+// SensorTask (núcleo 0, prioridad alta): adquisición de sensores. Los accesores
+// del SensorManager ahora están protegidos, por lo que ControlTask puede leerlos
+// en paralelo sin carrera de datos (SEMA §202-203 / docs/MEJORAS.md §2).
+static void sensorTask(void* arg) {
+  (void)arg;
+  app.watchdog.subscribe();
+  app.health.registerTask("sensors", xTaskGetCurrentTaskHandle());
+  for (;;) {
+    app.sensors.update();          // Leer sensores habilitados (escribe slots protegidos)
+    app.health.touch("sensors");
+    app.watchdog.feed();
+    xSemaphoreGive(sensorReady);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+  }
+}
+
+// ControlTask (núcleo 0): seguridad + controladores + reglas + salidas.
+static void controlTask(void* arg) {
+  (void)arg;
+  app.watchdog.subscribe();
+  app.health.registerTask("control", xTaskGetCurrentTaskHandle());
+  for (;;) {
+    // Espera una lectura fresca (hasta 3 s). Si no llega, corre igual con lo
+    // último disponible para no detener nunca la seguridad.
+    xSemaphoreTake(sensorReady, pdMS_TO_TICKS(3000));
+
+    SystemConfig cfg = app.config.get();
     app.safety.update(cfg);        // Seguridad (prioridad máxima)
     app.climate.update(cfg);       // Clima
     app.irrigation.update(cfg);    // Riego
@@ -101,9 +123,8 @@ static void automationTask(void* arg) {
     app.rules.update();            // Reglas configurables (se suman a los controladores)
     app.actuators.apply();         // Escribir salidas físicas
 
-    app.health.touch("automation");
+    app.health.touch("control");
     app.watchdog.feed();
-    vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
 
@@ -123,8 +144,9 @@ void setup() {
   app.health.begin();
   app.health.registerTask("loop", xTaskGetCurrentTaskHandle());
 
-  // 2) Historial.
+  // 2) Historial y almacenamiento (LittleFS/SPIFFS).
   app.history.begin(128);
+  app.storage.begin();
 
   // 2.5) Plataforma configurable (V8): capacidades, módulos y catálogos.
   {
@@ -133,9 +155,28 @@ void setup() {
     app.modules.registerBuiltins();
     app.sensorRegistry.buildFromConfig(pc);
     app.actuatorRegistry.buildFromConfig(pc);
-    Serial.printf("[BOOT] Capacidades: %u | Módulos: %u | Sensores: %u | Actuadores: %u\n",
+
+    // Perfiles Modbus de ejemplo (V9): pH y EC genéricos por RS485.
+    ModbusProfile p;
+    strncpy(p.id, "ph-generic", sizeof(p.id) - 1);
+    strncpy(p.vendor, "generic", sizeof(p.vendor) - 1);
+    p.slaveId = 1;
+    p.registerAddress = 0;
+    p.dataType = ModbusDataType::UINT16;
+    p.scale = 0.01f;
+    strncpy(p.unit, "pH", sizeof(p.unit) - 1);
+    p.magnitude = SensorType::PH;
+    app.modbusProfiles.registerProfile(p);
+    strncpy(p.id, "ec-generic", sizeof(p.id) - 1);
+    p.scale = 0.001f;
+    strncpy(p.unit, "mS/cm", sizeof(p.unit) - 1);
+    p.magnitude = SensorType::EC;
+    app.modbusProfiles.registerProfile(p);
+
+    Serial.printf("[BOOT] Capacidades: %u | Módulos: %u | Sensores: %u | Actuadores: %u | Perfiles Modbus: %u\n",
                   app.capabilities.count(), app.modules.count(),
-                  app.sensorRegistry.count(), app.actuatorRegistry.count());
+                  app.sensorRegistry.count(), app.actuatorRegistry.count(),
+                  app.modbusProfiles.profileCount());
   }
 
   // 3) Hardware de salida: 74HC595 (SPI) + MCP23017 (I²C).
@@ -172,12 +213,16 @@ void setup() {
   app.api.setWeather(&app.weather);
   app.api.setPlatform(&app.hardware, &app.modules, &app.sensorRegistry, &app.actuatorRegistry);
   app.api.setHealth(&app.health, &app.boot);
+  app.api.setStorage(&app.storage);
+  app.api.setModbusProfiles(&app.modbusProfiles);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);
 
-  // 7) Lanzar tarea de automatización en el núcleo 0.
-  xTaskCreatePinnedToCore(automationTask, "automation", 8192, nullptr, 1, nullptr, 0);
+  // 7) Lanzar tareas del núcleo 0: adquisición (prioridad alta) + control.
+  sensorReady = xSemaphoreCreateBinary();
+  xTaskCreatePinnedToCore(sensorTask, "sensors", 8192, nullptr, 3, nullptr, 0);
+  xTaskCreatePinnedToCore(controlTask, "control", 8192, nullptr, 2, nullptr, 0);
 
   app.history.add(0, "Sistema iniciado");
   Device::setState(DeviceState::RUN);

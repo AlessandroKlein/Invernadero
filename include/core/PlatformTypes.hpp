@@ -179,4 +179,87 @@ inline const char* storageBackendString(StorageBackend b) {
   }
 }
 
+// --- V8.1: ADC externos -------------------------------------------------------
+
+enum class AdcKind : uint8_t {
+  NONE = 0,
+  ADS1115 = 1,   // I²C 16 bits
+  MCP3008 = 2,   // SPI 10 bits, 8 canales
+  MCP3208 = 3,   // SPI 12 bits, 8 canales
+  ADS8688 = 4    // SPI 16 bits, 8 canales (industrial)
+};
+
+inline const char* adcKindString(AdcKind k) {
+  switch (k) {
+    case AdcKind::ADS1115: return "ADS1115";
+    case AdcKind::MCP3008: return "MCP3008";
+    case AdcKind::MCP3208: return "MCP3208";
+    case AdcKind::ADS8688: return "ADS8688";
+    default:               return "NONE";
+  }
+}
+
+// --- V9: Modbus / provisioning (decisiones §11/§17) ---------------------------
+
+enum class ProvisioningState : uint8_t {
+  DISCOVERED = 0,
+  PENDING = 1,
+  COMMISSIONED = 2,
+  ACTIVE = 3,
+  BLOCKED = 4,
+  REVOKED = 5
+};
+
+inline const char* provisioningStateString(ProvisioningState s) {
+  switch (s) {
+    case ProvisioningState::PENDING:      return "PENDING";
+    case ProvisioningState::COMMISSIONED: return "COMMISSIONED";
+    case ProvisioningState::ACTIVE:       return "ACTIVE";
+    case ProvisioningState::BLOCKED:      return "BLOCKED";
+    case ProvisioningState::REVOKED:      return "REVOKED";
+    default:                              return "DISCOVERED";
+  }
+}
+
+enum class ModbusDataType : uint8_t {
+  UINT16 = 0, INT16 = 1, UINT32 = 2, INT32 = 3, FLOAT32 = 4
+};
+
+inline const char* modbusDataTypeString(ModbusDataType t) {
+  switch (t) {
+    case ModbusDataType::INT16:   return "INT16";
+    case ModbusDataType::UINT32:  return "UINT32";
+    case ModbusDataType::INT32:   return "INT32";
+    case ModbusDataType::FLOAT32: return "FLOAT32";
+    default:                      return "UINT16";
+  }
+}
+
+// Perfil declarativo de un sensor Modbus (cómo se lee y se convierte).
+struct ModbusProfile {
+  char id[24] = "";
+  char vendor[24] = "";
+  char product[24] = "";
+  uint16_t vendorId = 0;
+  uint16_t productId = 0;
+  uint8_t slaveId = 1;
+  uint16_t registerAddress = 0;
+  ModbusDataType dataType = ModbusDataType::UINT16;
+  float scale = 1.0f;
+  float offset = 0.0f;
+  char unit[8] = "";
+  SensorType magnitude = SensorType::NONE;
+};
+
+// Instancia de un sensor Modbus en una instalación (referencia a un perfil).
+struct SensorInstance {
+  char id[24] = "";
+  char name[32] = "";
+  char profileId[24] = "";
+  uint8_t slaveId = 1;
+  uint8_t zone = 0;
+  bool enabled = false;
+  ProvisioningState state = ProvisioningState::DISCOVERED;
+};
+
 } // namespace gh

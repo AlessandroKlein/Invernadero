@@ -8,9 +8,11 @@
 #include "config/ConfigManager.hpp"
 #include "sensors/SensorManager.hpp"
 #include "sensors/SensorRegistry.hpp"
+#include "sensors/ModbusProfileRegistry.hpp"
 #include "actuators/ActuatorManager.hpp"
 #include "actuators/ActuatorRegistry.hpp"
 #include "storage/History.hpp"
+#include "storage/StorageManager.hpp"
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
 #include "network/WeatherStation.hpp"
@@ -37,6 +39,8 @@ public:
   void setHealth(HealthMonitor* health, BootCounters* boot) {
     health_ = health; boot_ = boot;
   }
+  void setStorage(StorageManager* storage) { storage_ = storage; }
+  void setModbusProfiles(ModbusProfileRegistry* mp) { modbusProfiles_ = mp; }
 private:
   WebServer server_{80};
   ConfigManager* cfg_ = nullptr;
@@ -53,6 +57,8 @@ private:
   ActuatorRegistry* actuatorReg_ = nullptr;
   HealthMonitor* health_ = nullptr;
   BootCounters* boot_ = nullptr;
+  StorageManager* storage_ = nullptr;
+  ModbusProfileRegistry* modbusProfiles_ = nullptr;
 
   // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
   char sessionToken_[40] = "";
@@ -100,6 +106,8 @@ private:
   void handleTokenRevoke();
   void handleHealth();
   void handleBoot();
+  void handleStorage();
+  void handleModbusProfiles();
   bool requireAuth();
   void issueToken();
   String buildStatusJson();

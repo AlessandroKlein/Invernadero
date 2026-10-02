@@ -26,6 +26,15 @@ public:
   uint32_t txCount() const { return txCount_; }
   uint32_t rxCount() const { return rxCount_; }
   uint32_t errorCount() const { return errorCount_; }
+
+  // Capa de aplicación (V9): nodos identificados por CAN ID + estado de actividad.
+  // La capa física (TWAI) queda separada de la lógica de nodos remotos.
+  static constexpr uint8_t MAX_NODES = 8;
+  bool registerNode(uint32_t id, const char* name);
+  void touchNode(uint32_t id);          // marca actividad de un nodo
+  bool nodeAlive(uint32_t id) const;    // ¿respondió en los últimos 5 s?
+  uint8_t nodeCount() const { return nodeCount_; }
+
   String toJson() const;
 
 private:
@@ -36,6 +45,15 @@ private:
   volatile uint32_t txCount_ = 0;
   volatile uint32_t rxCount_ = 0;
   volatile uint32_t errorCount_ = 0;
+
+  struct Node {
+    char name[24] = "";
+    uint32_t id = 0;
+    volatile uint32_t lastSeenMs = 0;
+  };
+  Node nodes_[MAX_NODES];
+  uint8_t nodeCount_ = 0;
+  int8_t findNode(uint32_t id) const;
 };
 
 } // namespace gh

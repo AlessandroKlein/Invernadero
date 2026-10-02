@@ -68,11 +68,36 @@ bool CanManager::receive(uint32_t& id, uint8_t* data, uint8_t& len, uint32_t tim
   len = msg.data_length_code;
   if (data) memcpy(data, msg.data, len);
   rxCount_++;
+  touchNode(id);  // capa de aplicación: registrar actividad del nodo emisor
   return true;
 }
 
+bool CanManager::registerNode(uint32_t id, const char* name) {
+  int8_t idx = findNode(id);
+  if (idx < 0) {
+    if (nodeCount_ >= MAX_NODES) return false;
+    idx = nodeCount_++;
+    nodes_[idx].id = id;
+  }
+  strncpy(nodes_[idx].name, name ? name : "", sizeof(nodes_[idx].name) - 1);
+  nodes_[idx].name[sizeof(nodes_[idx].name) - 1] = '\0';
+  nodes_[idx].lastSeenMs = 0;
+  return true;
+}
+
+void CanManager::touchNode(uint32_t id) {
+  int8_t idx = findNode(id);
+  if (idx >= 0) nodes_[idx].lastSeenMs = millis();
+}
+
+bool CanManager::nodeAlive(uint32_t id) const {
+  int8_t idx = findNode(id);
+  if (idx < 0) return false;
+  return nodes_[idx].lastSeenMs != 0 && (millis() - nodes_[idx].lastSeenMs) < 5000UL;
+}
+
 String CanManager::toJson() const {
-  DynamicJsonDocument doc(256);
+  DynamicJsonDocument doc(1024);
   doc["installed"] = installed_;
   doc["bitrate"] = bitrate_;
   doc["tx_pin"] = txPin_;
@@ -80,9 +105,24 @@ String CanManager::toJson() const {
   doc["tx_count"] = (uint32_t)txCount_;
   doc["rx_count"] = (uint32_t)rxCount_;
   doc["errors"] = (uint32_t)errorCount_;
+  JsonArray nodes = doc.createNestedArray("nodes");
+  for (uint8_t i = 0; i < nodeCount_; i++) {
+    JsonObject o = nodes.createNestedObject();
+    o["id"] = nodes_[i].id;
+    o["name"] = nodes_[i].name;
+    o["alive"] = nodeAlive(nodes_[i].id);
+    o["last_seen_ms"] = (uint32_t)nodes_[i].lastSeenMs;
+  }
   String out;
   serializeJson(doc, out);
   return out;
+}
+
+int8_t CanManager::findNode(uint32_t id) const {
+  for (uint8_t i = 0; i < nodeCount_; i++) {
+    if (nodes_[i].id == id) return i;
+  }
+  return -1;
 }
 
 } // namespace gh
