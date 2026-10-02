@@ -197,7 +197,8 @@ al origen del stream**: recibe bytes por `Update.write()` desde cualquier `Clien
 - **HTTPS sobre W5500**: la librería clásica `Ethernet` no tiene TLS. Requiere
   `W5500lwIP` (pila lwIP + mbedTLS) o ETH nativo (LAN8720) para OTA seguro.
 - **Estación meteorológica por Ethernet**: aplicar el mismo patrón (GET manual
-  sobre `Client*`) a `WeatherStation`.
+  sobre `Client*`) a `WeatherStation`. **Diferido para el futuro**: no se inicia
+  hasta terminar la modularidad completa (v3.18.0+).
 
 Se deja registrado el resto para cuando se defina el hardware de red definitivo.
 
@@ -262,17 +263,18 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
 
 ### NO configurable (compile-time)
 
-- **Mapa de pines** (`PinMap.hpp` son `constexpr`).
 - **Selección del modelo de sensor** (drivers compilados; no se puede agregar un
   modelo nuevo desde la web).
-- **Expansores** (74HC165 / MCP23S17 / ADC) y sus pines/CS/canales.
-- **Direcciones I²C** (fijas en `PinMap.hpp`).
-- **Buses** (registrados en `BusManager::begin()`).
+- **Expansores** (74HC165 / MCP23S17 / ADC) y sus pines/CS/canales (el catálogo
+  es estático en `HardwareManager::begin()`).
+- **Buses adicionales** (registrados en `BusManager::begin()`).
 
 ### Camino a modularidad completa (Tasmota-like)
 
-1. **Pines en tiempo de ejecución**: mover `PinMap` a una tabla en NVS; cada
-   driver recibe sus pines por configuración.
+1. ✅ **Pines en tiempo de ejecución (v3.18.0)**: `PinConfig` + `PinConfigManager`
+   en NVS (`ghpins`); sensores/actuadores/buses leen pines de NVS. Expuesto en
+   `GET/PUT /api/v1/pins` (PUT protegido). *Pendiente: formulario web editable en
+   `/pins` (hoy la página es de solo lectura).*
 2. **Catálogo de sensores instanciable**: `SensorRegistry` ya modela "driver +
    bus + address + zone"; falta que el `SensorManager` instancie drivers según
    el catálogo (hoy usa drivers compilados + flags).

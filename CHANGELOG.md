@@ -4,6 +4,15 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.18.0] - 2026-10-02
+
+### Added
+- Mapa de pines en tiempo de ejecución (`core/PinConfig` + `PinConfigManager`):
+  pines y direcciones I²C editables sin recompilar, persistidos en NVS (namespace
+  `ghpins`) y expuestos en `GET/PUT /api/v1/pins` (PUT protegido). Sensores,
+  actuadores, buses (I²C), 74HC595 y MCP23017 leen sus pines de NVS en lugar de
+  `PinMap.hpp`.
+
 ## [3.17.0] - 2026-10-02
 
 ### Added
