@@ -99,6 +99,7 @@ ul.alarms li.critical{border-left-color:var(--danger)}
 .table{width:100%;border-collapse:collapse;font-size:.9rem}
 .table th,.table td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--panel2)}
 .table th{color:var(--muted);font-weight:600}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
 .row-actions{display:flex;gap:6px}
 .roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .role-card{background:var(--panel);border:1px solid var(--panel2);border-radius:8px;padding:14px}
@@ -133,6 +134,16 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
   .sg-side{width:100%;position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px}
   .sg-nav{flex-direction:row;flex-wrap:wrap}
   .sg-main{padding:24px 18px 70px}
+}
+/* Tablas: en pantallas angostas cada fila se convierte en una tarjeta apilada
+   usando los data-label como etiqueta (además del scroll horizontal). */
+@media(max-width:640px){
+  .table thead{display:none}
+  .table,.table tbody,.table tr,.table td{display:block;width:100%}
+  .table tr{border:1px solid var(--panel2);border-radius:10px;margin-bottom:10px;padding:4px 10px;background:var(--panel)}
+  .table td{border-bottom:none;padding:6px 4px;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right}
+  .table td::before{content:attr(data-label);color:var(--muted);font-family:var(--mono);font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;text-align:left}
+  .table td .row-actions{margin-left:auto}
 }
 </style>
 <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('gh_theme')||'dark')}catch(e){}</script>
@@ -271,13 +282,13 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
     <section class="sg" id="s-table">
       <h3><span class="idx">10</span> Tabla de datos</h3>
       <p class="lead">Tabla de administración (usuarios) con acciones por fila.</p>
-      <div class="demo"><table class="table">
-        <thead><tr><th>Usuario</th><th>Nombre</th><th>Roles</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead>
+      <div class="demo"><div class="table-wrap"><table class="table">
+        <thead><tr><th>Usuario</th><th>Nombre</th><th>Roles</th><th>Estado</th><th>Último acceso</th><th>Acciones</th></tr></thead>
         <tbody>
-          <tr><td>juan</td><td>Juan Pérez</td><td>OPERATOR</td><td>✅</td><td>28/09/2026 14:32</td><td><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
-          <tr><td>admin</td><td>Admin</td><td>SUPERADMIN</td><td>✅</td><td>28/09/2026 08:01</td><td><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
+          <tr><td data-label="Usuario">juan</td><td data-label="Nombre">Juan Pérez</td><td data-label="Roles">OPERATOR</td><td data-label="Estado">✅</td><td data-label="Último acceso">28/09/2026 14:32</td><td data-label="Acciones"><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
+          <tr><td data-label="Usuario">admin</td><td data-label="Nombre">Admin</td><td data-label="Roles">SUPERADMIN</td><td data-label="Estado">✅</td><td data-label="Último acceso">28/09/2026 08:01</td><td data-label="Acciones"><span class="row-actions"><button class="secondary">Editar</button><button class="danger">Eliminar</button></span></td></tr>
         </tbody>
-      </table></div>
+      </table></div></div>
     </section>
     <section class="sg" id="s-roles">
       <h3><span class="idx">11</span> Tarjetas de rol</h3>
@@ -348,7 +359,7 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
             <button class="dev">GH-003 · Hidroponía</button>
           </div>
           <div style="flex:1;padding:18px;min-width:0">
-            <div class="meta">FW 3.4.0 · HW ESP32-GH-V1 rev0 · RUN</div>
+            <div class="meta">FW 3.9.0 · HW ESP32-GH-V1 rev0 · RUN</div>
             <h3 style="margin:4px 0 8px;font-size:1rem;color:var(--accent)">Sensores</h3>
             <div class="grid">
               <div class="tile"><div class="label">Temperatura</div><div class="value">24.6</div><div class="unit">°C</div></div>
@@ -383,6 +394,32 @@ legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:0 8px}
           <button class="secondary" style="font-size:.8rem">OFF</button>
         </div>
       </div>
+    </section>
+
+    <section class="sg" id="s-token">
+      <h3><span class="idx">18</span> Token de API</h3>
+      <p class="lead">Sección "API / Servidor central" de la web local: genera un token para autorizar
+      control desde el servidor central. El token se muestra una sola vez (campo de solo lectura).</p>
+      <div class="demo" style="max-width:560px">
+        <label class="lbl" style="margin-top:0">Token de API (autoriza control y cambios desde el servidor central)</label>
+        <input type="text" id="api-token" readonly placeholder="No generado" value="" style="margin:8px 0;font-family:var(--mono)">
+        <div class="row">
+          <button onclick="document.getElementById('api-token').value='3f9a'.toUpperCase().padEnd(8,'0')+'-'+(Math.random().toString(16).slice(2,10).toUpperCase())">Generar token</button>
+          <button class="secondary" onclick="document.getElementById('api-token').value=''">Revocar</button>
+        </div>
+        <p class="error" id="api-token-hint" style="margin-top:8px;color:var(--muted)">El token se almacena en NVS separado y nunca se exporta en el JSON de configuración.</p>
+      </div>
+    </section>
+
+    <section class="sg" id="s-health">
+      <h3><span class="idx">19</span> Salud y módulos</h3>
+      <p class="lead">Estado de tareas (health monitor) y registros V8 expuestos por REST.</p>
+      <div class="demo"><div class="grid">
+        <div class="tile"><div class="label">Tarea · sensors</div><div class="value"><span class="dot online"></span></div><div class="unit">alive</div></div>
+        <div class="tile"><div class="label">Tarea · control</div><div class="value"><span class="dot online"></span></div><div class="unit">alive</div></div>
+        <div class="tile"><div class="label">Free heap</div><div class="value">243</div><div class="unit">KB</div></div>
+        <div class="tile"><div class="label">Módulos</div><div class="value">10</div><div class="unit">enabled</div></div>
+      </div></div>
     </section>
 
     <footer style="border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:.82rem;font-family:var(--mono)">

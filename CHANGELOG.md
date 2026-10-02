@@ -4,6 +4,27 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.10.0] - 2026-10-02
+
+### Added
+- División de tareas FreeRTOS: `SensorTask` (adquisición) + `ControlTask`
+  (seguridad/control/salidas) con semáforo, accesores de `SensorManager`
+  protegidos por mutex (MEJORAS §2-3).
+- V8.1: `SpiManager` (bus SPI compartido), `ShiftRegister165` (74HC165),
+  `Mcp23s17` (expansor SPI) y `AdcManager` (MCP3008/MCP3208 por SPI).
+- V8.4: `StorageManager` (LittleFS/SPIFFS) con E/S de archivos y estado,
+  expuesto en `GET /api/v1/storage`.
+- V9: `ModbusProfileRegistry` (perfiles + instancias + provisioning),
+  expuesto en `GET /api/v1/modbus/profiles`; tipos `ModbusProfile`,
+  `SensorInstance`, `ProvisioningState`, `ModbusDataType`, `AdcKind`.
+- V9: capa de aplicación CAN en `CanManager` (registro de nodos por CAN ID,
+  actividad y estado).
+- Frontend: tabla de datos responsive (scroll + tarjetas apiladas en móvil) y
+  `docs/frontend-preview.html` actualizado con token de API y salud.
+
+### Changed
+- `SensorManager` expone lectura protegida de slots (`valueAt`).
+
 ## [3.9.0] - 2026-10-02
 
 ### Added

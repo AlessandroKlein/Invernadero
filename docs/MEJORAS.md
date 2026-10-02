@@ -9,7 +9,7 @@
 
 ---
 
-## 1. Resumen de esta entrega (v3.9.0)
+## 1. Resumen (v3.9.0 → v3.10.0)
 
 | Mejora | Estado |
 |--------|--------|
@@ -18,53 +18,50 @@
 | Token de API generable desde la web (control desde servidor central) | ✅ implementado |
 | Health monitor por tareas (heartbeat + stack high-water-mark + heap) | ✅ implementado |
 | Contadores de reinicio en NVS (boot/watchdog/brownout/panic/...) | ✅ implementado |
-| Watchdog de tareas (suscripción de la tarea de automatización) | ✅ implementado |
-| Abstracción CAN/TWAI (`CanManager`, transceptor SN65HVD23X) | ✅ preparado |
-| División completa SensorTask/ControlTask con colas | ❌ pendiente (ver §3) |
+| Watchdog de tareas (suscripción de las tareas) | ✅ implementado |
+| División SensorTask/ControlTask con semáforo + accesores protegidos | ✅ v3.10.0 |
+| V8.1: `SpiManager`, `ShiftRegister165` (74HC165), `Mcp23s17`, `AdcManager` | ✅ v3.10.0 |
+| V8.4: `StorageManager` (LittleFS/SPIFFS) | ✅ v3.10.0 |
+| V9: `ModbusProfileRegistry` (perfiles + instancias + provisioning) | ✅ v3.10.0 |
+| Abstracción CAN/TWAI + capa de aplicación (nodos) | ✅ v3.10.0 |
+| W5500 Ethernet (librería SPI + interfaz de red intercambiable) | ❌ pendiente |
+| SD (backend de `StorageManager`) | ❌ pendiente |
+| Configuración por capas + migraciones | ❌ pendiente |
+| Event Bus + scheduler por capacidades + Store & Forward | ❌ pendiente |
 
 ---
 
 ## 2. División de tareas FreeRTOS (SEMA §132-134, §202-208)
 
-### Estado actual
-
-El firmware ya separa la carga en dos núcleos:
+### Estado actual (v3.10.0)
 
 ```text
-Core 0 — automationTask   → sensores + control + salidas (adquisición/control)
-Core 1 — loop()           → red, MQTT, API, WebSocket, OTA (comunicación)
+Core 0 — SensorTask (prio 3) → leer sensores (escribe slots protegidos)
+         ControlTask (prio 2) → seguridad + controladores + salidas
+Core 1 — loop()               → red, MQTT, API, WebSocket, OTA (comunicación)
 ```
 
-Esto garantiza el principio de no bloqueo: la comunicación (que puede tardar
-segundos) nunca detiene la adquisición. La tarea de automatización está ahora
-suscrita al watchdog de tareas y reporta heartbeat al `HealthMonitor`.
+La adquisición y el control ya están separados con un semáforo sensor→control;
+los accesores de `SensorManager` se protegieron con mutex (`valueAt`), por lo que
+no hay carrera de datos. La comunicación sigue en el núcleo 1 y nunca bloquea la
+adquisición (principio de no bloqueo).
 
-### División recomendada (refactor pendiente)
+### División recomendada (refactor opcional futuro)
 
-El objetivo de SEMA es separar por responsabilidades:
+Para granularidad total al estilo SEMA se puede llegar a:
 
 ```text
 SensorTask        (prioridad alta)   → leer sensores, publicar snapshot por cola
 MeasurementTask   (prioridad media)  → validar, calcular variables (VPD, ...)
 ControlTask       (prioridad alta)   → seguridad + controladores + salidas
-StorageTask       (prioridad media)  → historial local (SPIFFS/LittleFS/SD)
+StorageTask       (prioridad media)  → historial local (LittleFS/SD)
 NetworkTask       (prioridad baja)   → WiFi/Ethernet/mDNS/NTP
 CommunicationTask (prioridad baja)   → MQTT publish/subscribe
 WebTask           (prioridad baja)   → API REST + WebSocket
 ```
 
-Comunicación mediante colas (`xQueue`) de snapshots, no variables compartidas.
-
-### Bloqueo para implementarlo hoy
-
-Los accesores tipados de `SensorManager` (`temperature()`, `humidity()`, ...)
-leen `values_[]` **sin mutex**; solo `setValue()` y `snapshot()` lo protegen.
-Separar `SensorTask` de `ControlTask` sin IPC introduciría una carrera de datos.
-
-**Requisito previo:** proteger los getters con el mutex de `SensorManager`, o
-hacer que `SensorTask` publique un `SensorValue` snapshot por cola y que
-`ControlTask` consuma ese snapshot. La segunda opción es la recomendada (menos
-contención, sin cambios de firma en los controladores).
+La evolución natural es sustituir el semáforo por una cola (`xQueue`) de
+`SensorValue` snapshots para desacoplar aún más las tareas (menos contención).
 
 ---
 
@@ -124,8 +121,8 @@ soportados: 25k/50k/100k/125k/250k/500k/800k/1M.
 ### Pendiente
 
 - Asignar pines según instalación (transceptor **SN65HVD230/231/232** externo).
-- Filtros por CAN ID y prioridad, timeout y estado de nodos.
-- Capa de aplicación CAN (sensores/nodos remotos) separada de la física.
+- Filtros por CAN ID y prioridad (la capa de aplicación con nodos ya está:
+  `registerNode`/`touchNode`/`nodeAlive`).
 - No habilitar `CAN` como capability hasta que exista el transceptor.
 
 ---
@@ -133,12 +130,12 @@ soportados: 25k/50k/100k/125k/250k/500k/800k/1M.
 ## 6. RS485 / Modbus (SEMA §23-24)
 
 Estado: RS485 + Modbus RTU básicos implementados (escaneo + lectura de
-registros). Pendiente para V9:
+registros). `ModbusProfileRegistry` (v3.10.0) aporta los perfiles declarativos
+(`ModbusProfile`: slave ID, registro, tipo de dato, escala, offset, unidad) y las
+instancias (`SensorInstance`) con estado de provisioning. Pendiente:
 
-- **Perfiles Modbus** declarativos (`SensorProfile` → `SensorInstance`): slave ID,
-  registros, tipo de dato, endianness, escala, offset, unidad.
-- **Commissioning** con Vendor/Product ID (sin asumir fabricante).
 - **Gateway RS485** multi-esclavo con polling por intervalos configurables.
+- Integrar el registro de perfiles con el driver `ModbusRtu` en tiempo de ejecución.
 
 ---
 

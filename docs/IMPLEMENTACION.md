@@ -37,12 +37,14 @@ include/ y src/
   core/                    # Types, PinMap, Version, PlatformTypes (V8),
                            # CapabilityRegistry, ModuleRegistry
   config/                  # ConfigManager (JSON en NVS, versionado + rollback) + Defaults
-  storage/                 # History (buffer circular de eventos/alarmas)
+  storage/                 # History (buffer circular de eventos/alarmas),
+                           # StorageManager (LittleFS/SPIFFS)
   hardware/                # BusManager, HardwareManager (V8), CanManager (CAN/TWAI),
-                           # ShiftRegister595 (soft-PWM), Mcp23017 (I²C), ModbusRtu (scan+stats)
+                           # SpiManager, AdcManager, ShiftRegister595/165,
+                           # Mcp23017/23s17, ModbusRtu (scan+stats)
   sensors/                 # SHT31/AHT20, DS18B20, ADS1115, BH1750, SCD4x(CO₂),
                            # caudal, tanque, lluvia, viento, pH, EC, SensorManager,
-                           # SensorRegistry (V8)
+                           # SensorRegistry (V8), ModbusProfileRegistry (V9)
   actuators/               # ActuatorManager (bomba, válvulas, ventiladores, ...),
                            # ActuatorRegistry (V8)
   control/                 # Climate, Irrigation, Lighting, Roof, Safety
@@ -113,6 +115,9 @@ GET  /api/v1/actuators/catalog
 POST /api/v1/token/rotate     POST /api/v1/token/revoke
 GET  /api/v1/token/status     GET  /api/v1/health
 GET  /api/v1/boot
+
+# Almacenamiento + Modbus (V8.4/V9)
+GET  /api/v1/storage          GET  /api/v1/modbus/profiles
 ```
 
 ## Plataforma configurable (V8)
@@ -162,15 +167,15 @@ Identidad y estados, OTA y actualización, y Compilación y flasheo.
 
 ## Trabajo futuro (fuera del alcance de esta entrega)
 
-- División completa de tareas FreeRTOS con colas (SensorTask/ControlTask/
-  StorageTask/NetworkTask/CommunicationTask) — ver `docs/MEJORAS.md` §2-3.
+- **W5500 Ethernet**: requiere añadir la librería SPI `Ethernet` (la `Ethernet`
+  incluida en el core es la nativa `ETH`, no la SPI) y conmutar `NetworkManager`
+  a una interfaz intercambiable WiFi/Ethernet.
+- **SD**: backend de `StorageManager` (la librería `SD` está disponible; falta
+  asignar CS y montar por SPI).
 - Configuración por capas (FACTORY/HARDWARE/DRIVERS/INSTALLATION/AUTOMATION/USER).
-- V8.1+: SPI Manager, I2C Manager, 74HC165, MCP23S17, ADC Manager, W5500.
-- V8.4: `StorageManager` (LittleFS/SD) y estructura de archivos `/greenhouse/`.
-- V9: perfiles Modbus declarativos + commissioning, sensores industriales,
-  WeatherManager y capa de aplicación CAN.
+- Event Bus / scheduler por capacidades y Store & Forward con `sequence_id`
+  (ver `docs/MEJORAS.md`).
 - Servidor central (PostgreSQL + dashboard multinvernadero + usuarios/permisos +
   Device Shadow + auditoría + retención de históricos).
 - UI web completa de configuración/asistente por zonas/sensores/actuadores.
-- Variante SPI MCP23S17, Ethernet (interfaz de red intercambiable).
 
