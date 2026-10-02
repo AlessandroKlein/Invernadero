@@ -293,8 +293,11 @@ sin tocar código; la configuración **de hardware** todavía es compile-time.
    - ✅ v3.27.0 — **pools SPI** (`Mcp23s17` y `AdcManager` MCP3208, hasta 4 c/u) +
      `SpiManager` desde NVS.
    - ✅ v3.28.0 — **74HC165** instanciado desde el catálogo (pines + nº chips en NVS).
-   - ❌ Falta: **asignación de canales a actuadores** (hoy `ActuatorManager` usa
-     solo `mcpPool[0]` + `shift`).
+   - ✅ v3.29.0 — **asignación de canales** con pool MCP23017 (canales 32..95 →
+     device 0..3 / pin 0..15). Mecanismo completo.
+   - ⚠️ Resta (opcional): **mapeo de canales configurable por actuador** (hoy el
+     `ROLE_TABLE` tiene canales fijos 0..24; falta que la web elija el canal/bus
+     de cada actuador desde el catálogo).
 4. **Persistencia + migraciones** (ya hay `schema_version` + `migrate`).
 
 ### Impacto

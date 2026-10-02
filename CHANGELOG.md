@@ -4,6 +4,13 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.29.0] - 2026-10-02
+
+### Changed
+- Asignación de canales a actuadores con **pool MCP23017**: `ActuatorManager`
+  mapea canales 32..95 → dispositivo 0..3 / pin 0..15 del pool I²C (antes solo
+  una instancia). El mecanismo de expansión por canales queda completo.
+
 ## [3.28.0] - 2026-10-02
 
 ### Added
