@@ -1,9 +1,17 @@
 #include "hardware/CanManager.hpp"
 
 #include <ArduinoJson.h>
+// El periférico TWAI (CAN 2.0) solo existe en ESP32 / ESP32-S2 / ESP32-S3.
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
 #include <driver/twai.h>
+#define GH_HAS_TWAI 1
+#else
+#define GH_HAS_TWAI 0
+#endif
 
 namespace gh {
+
+#if GH_HAS_TWAI
 
 // Mapea un bitrate a la configuración de temporización estándar de ESP-IDF.
 static twai_timing_config_t timingFor(uint32_t bitrate) {
@@ -71,6 +79,15 @@ bool CanManager::receive(uint32_t& id, uint8_t* data, uint8_t& len, uint32_t tim
   touchNode(id);  // capa de aplicación: registrar actividad del nodo emisor
   return true;
 }
+
+#else  // !GH_HAS_TWAI: el driver queda inerte (sin periférico CAN)
+
+bool CanManager::begin(int, int, uint32_t) { return false; }
+void CanManager::end() { installed_ = false; }
+bool CanManager::send(uint32_t, const uint8_t*, uint8_t, bool) { return false; }
+bool CanManager::receive(uint32_t&, uint8_t*, uint8_t&, uint32_t) { return false; }
+
+#endif  // GH_HAS_TWAI
 
 bool CanManager::registerNode(uint32_t id, const char* name) {
   int8_t idx = findNode(id);

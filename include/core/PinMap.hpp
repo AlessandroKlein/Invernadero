@@ -16,6 +16,15 @@ constexpr int HC595_SCLK = 18;  // CLOCK -> SHCP
 constexpr int HC595_LATCH = 5;  // LATCH -> STCP
 constexpr int HC595_COUNT = 4;  // 4 x 74HC595 = 32 salidas
 
+// --- Bus SPI nativo (V8.1: MCP23S17, ADC externo, SD, W5500) ---
+// Nota de compatibilidad: el 74HC595 usa SPI bit-banged (23/18/5). El SPI nativo
+// puede compartir MISO/MOSI/SCK, pero no debe operar a la vez que el 595 si
+// comparten los mismos GPIO. Los pines CS se asignan por instalación, evitando
+// los GPIO de strapping (0, 2, 12, 15 en ESP32 clásico).
+constexpr int SPI_SCK  = 18;
+constexpr int SPI_MISO = 19;
+constexpr int SPI_MOSI = 23;
+
 // --- Bus 1-Wire (DS18B20) ---
 constexpr int ONEWIRE_PIN = 4;  // con pull-up de 4.7 kΩ a 3.3 V (común a todos)
 

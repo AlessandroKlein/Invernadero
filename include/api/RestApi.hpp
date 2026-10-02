@@ -112,6 +112,7 @@ private:
   void handleStorage();
   void handleModbusProfiles();
   void handleLogs();
+  void handlePins();
   bool requireAuth();
   void issueToken();
   String buildStatusJson();

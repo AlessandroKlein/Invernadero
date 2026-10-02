@@ -37,6 +37,7 @@ void RestApi::begin(ConfigManager* cfg, SensorManager* s, ActuatorManager* a, Hi
 
 void RestApi::setupRoutes() {
   server_.on("/", HTTP_GET, [this]() { handleRoot(); });
+  server_.on("/pins", HTTP_GET, [this]() { handlePins(); });
   server_.on("/api/v1/status", HTTP_GET, [this]() { handleStatus(); });
   server_.on("/api/v1/sensors", HTTP_GET, [this]() { handleSensors(); });
   server_.on("/api/v1/weather", HTTP_GET, [this]() { handleWeather(); });
@@ -89,6 +90,12 @@ void RestApi::setupRoutes() {
 void RestApi::handleRoot() {
   server_.sendHeader("Cache-Control", "no-cache");
   server_.send(200, "text/html", WebAssets::INDEX_HTML);
+}
+
+void RestApi::handlePins() {
+  // Página de pines: solo HTML (accesible desde la IP del dispositivo), no JSON.
+  server_.sendHeader("Cache-Control", "no-cache");
+  server_.send(200, "text/html", WebAssets::PINS_HTML);
 }
 
 void RestApi::handleModules() {
