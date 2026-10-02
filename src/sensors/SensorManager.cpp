@@ -174,8 +174,16 @@ void SensorManager::update() {
     return;
   }
 
+  // El catálogo instanciable controla el "enabled" de cada sensor (editable por
+  // web); si no hay catálogo o entrada, se usa el flag de SystemConfig.
+  auto on = [&](const char* id, bool def) -> bool {
+    SensorEntry e;
+    if (registry_ && registry_->get(id, e)) return e.enabled;
+    return def;
+  };
+
   // --- Temperatura/Humedad interior (SHT31) ---
-  if (cfg_.sensorSht31) {
+  if (on("temp_interior", cfg_.sensorSht31)) {
     float t, h;
     if (sht31_.read(t, h)) {
       setValue(S_TEMP, SensorType::TEMP_SHT31, "Temperatura", 0, true, t, t, SensorStatus::OK, "°C");
@@ -192,7 +200,7 @@ void SensorManager::update() {
   }
 
   // --- Temperatura/Humedad exterior (AHT20) ---
-  if (cfg_.sensorExterior) {
+  if (on("temp_exterior", cfg_.sensorExterior)) {
     float t, h;
     if (exterior_.read(t, h)) {
       setValue(S_EXT_TEMP, SensorType::TEMP_EXTERIOR, "Temp. exterior", 0, true, t, t, SensorStatus::OK, "°C");
@@ -234,7 +242,7 @@ void SensorManager::update() {
   }
 
   // --- Humedad de suelo (ADS1115) ---
-  if (cfg_.sensorSoil && ads_.available()) {
+  if (on("soil_0", cfg_.sensorSoil) && ads_.available()) {
     for (uint8_t z = 0; z < MAX_SOIL_ZONES; z++) {
       float raw = ads_.readRaw(z);
       float pct = soilToPercent(raw, cfg_.soilWetRaw[z], cfg_.soilDryRaw[z]);
@@ -247,7 +255,7 @@ void SensorManager::update() {
   }
 
   // --- Iluminación (BH1750) ---
-  if (cfg_.sensorLight) {
+  if (on("light", cfg_.sensorLight)) {
     float lux = light_.readLux();
     if (!isnan(lux)) setValue(S_LIGHT, SensorType::LIGHT_LUX, "Luz", 0, true, lux, lux, SensorStatus::OK, "lux");
     else setValue(S_LIGHT, SensorType::LIGHT_LUX, "Luz", 0, true, 0, 0,
@@ -257,7 +265,7 @@ void SensorManager::update() {
   }
 
   // --- CO₂ (SCD4x) ---
-  if (cfg_.sensorCo2) {
+  if (on("co2", cfg_.sensorCo2)) {
     if (!co2Started_) { co2_.startPeriodicMeasurement(); co2Started_ = true; }
     uint16_t c; float t, h;
     if (co2_.readMeasurement(c, t, h)) setValue(S_CO2, SensorType::CO2, "CO₂", 0, true, c, c, SensorStatus::OK, "ppm");

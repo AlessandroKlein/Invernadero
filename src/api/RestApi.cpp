@@ -185,7 +185,14 @@ void RestApi::handleModbusGateway() {
 void RestApi::handlePinsApi() {
   if (!pinConfigMgr_) { server_.send(503, "application/json", "{\"error\":\"unavailable\"}"); return; }
   if (server_.method() == HTTP_GET) {
-    server_.send(200, "application/json", pinConfigToJson(pinConfigMgr_->get()));
+    // Respuesta con indicador de bloqueo (GH_PINS_LOCKED) para que la web deshabilite el formulario.
+    String body = "{\"locked\":" + String(GH_PINS_LOCKED) + ",\"pins\":" + pinConfigToJson(pinConfigMgr_->get()) + "}";
+    server_.send(200, "application/json", body);
+    return;
+  }
+  // PUT: bloqueado en PCB fija (README §205).
+  if (GH_PINS_LOCKED) {
+    server_.send(403, "application/json", "{\"error\":\"pins locked\"}");
     return;
   }
   // PUT: protegido (requiere sesión de administrador o token de API).

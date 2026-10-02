@@ -235,7 +235,13 @@ button{background:var(--accent);color:#06250f;border:0;border-radius:8px;padding
 <script>
 var f=document.getElementById('f');
 fetch('/api/v1/pins').then(function(r){return r.json()}).then(function(p){
-  f.querySelectorAll('input[name]').forEach(function(i){ if(p[i.name]!==undefined) i.value=p[i.name]; });
+  var pins=(p.pins||p);
+  f.querySelectorAll('input[name]').forEach(function(i){ if(pins[i.name]!==undefined) i.value=pins[i.name]; });
+  if(p.locked){
+    f.querySelectorAll('input').forEach(function(i){i.disabled=true;});
+    f.querySelector('button').disabled=true;
+    var st=document.getElementById('st');st.className='err';st.textContent='Pines bloqueados (PCB fija).';
+  }
 }).catch(function(){});
 f.addEventListener('submit',function(e){
   e.preventDefault();
