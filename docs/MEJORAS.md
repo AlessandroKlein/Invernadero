@@ -178,21 +178,26 @@ función sin tocar el driver. Implica `schema_version` + migraciones.
 2. HTTP/OTA sobre Ethernet (desbloquear §10).
 3. Integración CAN de aplicación (tras definir hardware).
 
-## 10. HTTP/OTA sobre Ethernet — bloqueo técnico (registrado)
+## 10. HTTP/OTA sobre Ethernet — resuelto (HTTP) / pendiente (HTTPS)
 
-El `HTTPClient` del ESP32 solo acepta `WiFiClient`
-(`bool begin(WiFiClient &client, ...)`), mientras que el `EthernetClient` del
-W5500 (librería clásica `arduino-libraries/Ethernet`) deriva de `Client`, no de
-`WiFiClient`. Por eso **MQTT sí funciona por Ethernet** (PubSubClient acepta
-`Client&`), pero **HTTP/OTA no**.
+El `HTTPClient` del ESP32 solo acepta `WiFiClient`, pero `Update.h` es **agnóstico
+al origen del stream**: recibe bytes por `Update.write()` desde cualquier `Client`
+(WiFi o `EthernetClient` del W5500).
 
-### Vías para resolverlo (más adelante)
+### Resuelto (v3.16.0)
 
-1. **Cliente HTTP propio** sobre `EthernetClient` (sin TLS; HTTP plano).
-2. **ETH nativo (LAN8720)** en lugar de W5500: integra con la pila lwIP y
-   `HTTPClient`, habilitando HTTP y OTA (y TLS vía `WiFiClientSecure`/mbedTLS).
+- **OTA por HTTP sobre Ethernet (W5500)**: `OtaManager::applyFromUrl` hace un GET
+  manual sobre el `Client*` activo y escribe el `.bin` en la partición OTA, con
+  soporte de `Content-Length` y `Transfer-Encoding: chunked`.
 
-Se deja registrado para atacarlo cuando se defina el hardware de red definitivo.
+### Pendiente
+
+- **HTTPS sobre W5500**: la librería clásica `Ethernet` no tiene TLS. Requiere
+  `W5500lwIP` (pila lwIP + mbedTLS) o ETH nativo (LAN8720) para OTA seguro.
+- **Estación meteorológica por Ethernet**: aplicar el mismo patrón (GET manual
+  sobre `Client*`) a `WeatherStation`.
+
+Se deja registrado el resto para cuando se defina el hardware de red definitivo.
 
 ## 11. Gateway RS485 (polling multi-esclavo por perfiles) — pendiente
 

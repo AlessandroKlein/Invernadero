@@ -4,6 +4,15 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.16.0] - 2026-10-02
+
+### Added
+- OTA por HTTP sobre cualquier interfaz (WiFi **o** Ethernet/W5500): descarga
+  manual con GET sobre `Client*` genérico + escritura directa a la partición
+  OTA (`Update.write`), con soporte de `Content-Length` y `Transfer-Encoding: chunked`.
+- `OtaManager::applyFromUrl(url, sha, Client*)` recibe el cliente de red activo.
+- HTTPS sigue usando `HTTPClient` + `WiFiClientSecure` (solo WiFi).
+
 ## [3.15.0] - 2026-10-02
 
 ### Added
