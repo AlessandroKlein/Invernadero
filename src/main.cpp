@@ -44,6 +44,8 @@
 #include "system/OtaManager.hpp"
 #include "system/Diagnostics.hpp"
 #include "system/Device.hpp"
+#include "system/HealthMonitor.hpp"
+#include "system/BootCounters.hpp"
 
 using namespace gh;
 
@@ -73,13 +75,20 @@ struct App {
   RestApi api;
   WebSocketServer ws;
   Watchdog watchdog;
+  HealthMonitor health;
+  BootCounters boot;
   OtaManager ota;
 };
 static App app;
 
-// Tarea de automatización: lectura de sensores + control + aplicación de salidas.
+// Tarea de automatización (núcleo 0): adquisición + control + salidas. Se mantiene
+// como una única tarea atómica porque los controladores leen los accesores del
+// SensorManager de forma secuencial (sin IPC entre tareas); la separación en
+// SensorTask/ControlTask con colas queda como siguiente refactor (ver docs/MEJORAS.md).
 static void automationTask(void* arg) {
   (void)arg;
+  app.watchdog.subscribe();                       // vigilar esta tarea (SEMA §132)
+  app.health.registerTask("automation", xTaskGetCurrentTaskHandle());
   for (;;) {
     SystemConfig cfg = app.config.get();
 
@@ -92,6 +101,8 @@ static void automationTask(void* arg) {
     app.rules.update();            // Reglas configurables (se suman a los controladores)
     app.actuators.apply();         // Escribir salidas físicas
 
+    app.health.touch("automation");
+    app.watchdog.feed();
     vTaskDelay(pdMS_TO_TICKS(2000));
   }
 }
@@ -106,6 +117,11 @@ void setup() {
   // 1) Configuración (NVS + JSON).
   app.config.begin();
   Device::setState(DeviceState::INITIALIZING);
+
+  // 1.5) Salud por tareas y contadores de reinicio (SEMA §132-134).
+  app.boot.begin();  // registra arranque + causa del último reinicio
+  app.health.begin();
+  app.health.registerTask("loop", xTaskGetCurrentTaskHandle());
 
   // 2) Historial.
   app.history.begin(128);
@@ -154,6 +170,8 @@ void setup() {
                 &app.network, &app.mqtt);
   app.api.setRuleEngine(&app.rules);
   app.api.setWeather(&app.weather);
+  app.api.setPlatform(&app.hardware, &app.modules, &app.sensorRegistry, &app.actuatorRegistry);
+  app.api.setHealth(&app.health, &app.boot);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);
@@ -174,6 +192,7 @@ void loop() {
   app.ws.loop();
   app.ota.loop();
   app.watchdog.feed();
+  app.health.touch("loop");
 
   // Procesar comandos MQTT (p. ej. OTA remota desde el servidor central).
   String cmd;

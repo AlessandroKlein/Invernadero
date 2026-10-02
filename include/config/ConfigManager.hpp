@@ -28,6 +28,14 @@ public:
   bool auth(const String& user, const String& pass) const;
   String adminUser() const;
 
+  // Token de API para autorizar control/modificación desde el servidor central.
+  // Se almacena en una key NVS separada (nunca se exporta en el JSON) y se
+  // gestiona desde la página de configuración.
+  String apiToken() const;
+  String rotateApiToken();                  // genera uno nuevo aleatorio y lo persiste
+  void revokeApiToken();                    // lo elimina
+  bool validateApiToken(const String& t) const;
+
   // Serialización JSON (usada por la API REST y el arranque).
   static String toJson(const SystemConfig& c);
   static bool fromJson(const String& json, SystemConfig& out);
@@ -36,11 +44,12 @@ private:
   SystemConfig cfg_;                 // Configuración actual (CONFIG ACTUAL)
   SystemConfig prev_;                // Configuración anterior (CONFIG ANTERIOR, rollback)
   mutable SemaphoreHandle_t mutex_ = nullptr; // Protege cfg_/prev_
-  Preferences prefs_;                // Almacenamiento NVS
+  mutable Preferences prefs_;        // Almacenamiento NVS (getString no es const)
   static constexpr const char* NVS_NS = "ghcfg";
   static constexpr const char* NVS_KEY = "config";
   static constexpr const char* NVS_KEY_PREV = "config_prev";
   static constexpr const char* NVS_KEY_ADMIN_PASS = "admin_pass";
+  static constexpr const char* NVS_KEY_API_TOKEN = "api_token";
 
   void ensureAdminPassword();        // Deriva del UID si está vacía y persiste
 };

@@ -45,6 +45,13 @@ label{font-size:.8rem;color:var(--off)}
 <section><h2>Sensores</h2><div class="grid" id="sensors"></div></section>
 <section><h2>Actuadores</h2><div id="actuators"></div></section>
 <section><h2>Alarmas</h2><div id="alarms">Sin alarmas</div></section>
+<section><h2>API / Servidor central</h2>
+<div class="card">
+<label>Token de API (autoriza control y cambios desde el servidor central)</label>
+<input id="apiToken" readonly placeholder="No generado" style="margin:8px 0">
+<button onclick="rotateToken()" style="margin-right:8px">Generar token</button>
+<button onclick="revokeToken()">Revocar</button>
+</div></section>
 
 <script>
 const api = '/api/v1';
@@ -117,7 +124,28 @@ async function loadStatus(){
   document.getElementById('subtitle').textContent = 'ID: '+(s.id||'-')+' · Modo: AUTO';
 }
 
-loadStatus(); loadSensors(); loadActuators(); loadAlarms();
+async function tokenStatus(){
+  if(!token) return;
+  try{
+    const r = await fetch(api+'/token/status',{headers:{'X-Auth-Token':token}});
+    if(r.ok){ const d = await r.json(); if(!d.configured) document.getElementById('apiToken').placeholder='No generado'; }
+  }catch(e){}
+}
+async function rotateToken(){
+  if(!token){ alert('Inicie sesión primero'); return; }
+  const r = await fetch(api+'/token/rotate',{method:'POST',headers:{'X-Auth-Token':token}});
+  const d = await r.json();
+  if(d.ok) document.getElementById('apiToken').value = d.token;
+  else alert('No autorizado');
+}
+async function revokeToken(){
+  if(!token){ alert('Inicie sesión primero'); return; }
+  const r = await fetch(api+'/token/revoke',{method:'POST',headers:{'X-Auth-Token':token}});
+  if(r.ok){ document.getElementById('apiToken').value=''; document.getElementById('apiToken').placeholder='No generado'; }
+  else alert('No autorizado');
+}
+
+loadStatus(); loadSensors(); loadActuators(); loadAlarms(); tokenStatus();
 setInterval(()=>{loadSensors();loadActuators();loadAlarms();}, 3000);
 </script>
 </body></html>)rawliteral";

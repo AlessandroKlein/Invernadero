@@ -69,11 +69,75 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/reset", HTTP_POST, [this]() { if (requireAuth()) handleReset(); });
   server_.on("/api/v1/config/rollback", HTTP_POST, [this]() { if (requireAuth()) handleRollback(); });
   server_.on("/api/v1/auth/login", HTTP_POST, [this]() { handleLogin(); });
+
+  // Plataforma configurable (V8): registros y token de API.
+  server_.on("/api/v1/modules", HTTP_GET, [this]() { handleModules(); });
+  server_.on("/api/v1/buses", HTTP_GET, [this]() { handleBuses(); });
+  server_.on("/api/v1/hardware", HTTP_GET, [this]() { handleHardware(); });
+  server_.on("/api/v1/sensors/catalog", HTTP_GET, [this]() { handleSensorCatalog(); });
+  server_.on("/api/v1/actuators/catalog", HTTP_GET, [this]() { handleActuatorCatalog(); });
+  server_.on("/api/v1/token/status", HTTP_GET, [this]() { if (requireAuth()) handleTokenStatus(); });
+  server_.on("/api/v1/token/rotate", HTTP_POST, [this]() { if (requireAuth()) handleTokenRotate(); });
+  server_.on("/api/v1/token/revoke", HTTP_POST, [this]() { if (requireAuth()) handleTokenRevoke(); });
+  server_.on("/api/v1/health", HTTP_GET, [this]() { handleHealth(); });
+  server_.on("/api/v1/boot", HTTP_GET, [this]() { handleBoot(); });
 }
 
 void RestApi::handleRoot() {
   server_.sendHeader("Cache-Control", "no-cache");
   server_.send(200, "text/html", WebAssets::INDEX_HTML);
+}
+
+void RestApi::handleModules() {
+  server_.send(200, "application/json", modules_ ? modules_->toJson() : "[]");
+}
+
+void RestApi::handleBuses() {
+  server_.send(200, "application/json", hardware_ ? hardware_->buses().toJson() : "[]");
+}
+
+void RestApi::handleHardware() {
+  server_.send(200, "application/json", hardware_ ? hardware_->toJson() : "[]");
+}
+
+void RestApi::handleSensorCatalog() {
+  server_.send(200, "application/json", sensorReg_ ? sensorReg_->toJson() : "[]");
+}
+
+void RestApi::handleActuatorCatalog() {
+  server_.send(200, "application/json", actuatorReg_ ? actuatorReg_->toJson() : "[]");
+}
+
+void RestApi::handleTokenStatus() {
+  String t = cfg_->apiToken();
+  DynamicJsonDocument r(256);
+  r["configured"] = t.length() > 0;
+  r["length"] = (int)t.length();
+  String out; serializeJson(r, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleTokenRotate() {
+  // Genera un token nuevo y lo devuelve una única vez (no se vuelve a mostrar).
+  String t = cfg_->rotateApiToken();
+  DynamicJsonDocument r(256);
+  r["ok"] = true;
+  r["token"] = t;
+  String out; serializeJson(r, out);
+  server_.send(200, "application/json", out);
+}
+
+void RestApi::handleTokenRevoke() {
+  cfg_->revokeApiToken();
+  server_.send(200, "application/json", "{\"ok\":true}");
+}
+
+void RestApi::handleHealth() {
+  server_.send(200, "application/json", health_ ? health_->toJson() : "{}");
+}
+
+void RestApi::handleBoot() {
+  server_.send(200, "application/json", boot_ ? boot_->toJson() : "{}");
 }
 
 void RestApi::handleStatus() {
@@ -443,8 +507,8 @@ void RestApi::issueToken() {
 }
 
 bool RestApi::requireAuth() {
-  // Verifica el token de sesión. Acepta "Authorization: Bearer <token>" o
-  // el header "X-Auth-Token: <token>". Sin token vigente -> 401.
+  // Verifica el token de sesión (admin local) o el token de API persistente.
+  // Acepta "Authorization: Bearer <token>" o el header "X-Auth-Token: <token>".
   String token = server_.header("X-Auth-Token");
   if (token.length() == 0) {
     String auth = server_.header("Authorization");
@@ -454,6 +518,9 @@ bool RestApi::requireAuth() {
       token == String(sessionToken_) && millis() < sessionExpires_) {
     return true;
   }
+  // Token de API persistente: autoriza control/modificación desde el servidor
+  // central sin depender de la sesión interactiva del administrador.
+  if (cfg_ && cfg_->validateApiToken(token)) return true;
   server_.send(401, "application/json", "{\"error\":\"unauthorized\"}");
   return false;
 }

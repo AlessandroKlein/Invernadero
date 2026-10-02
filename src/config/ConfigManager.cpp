@@ -3,6 +3,7 @@
 #include "system/Device.hpp"
 
 #include <ArduinoJson.h>
+#include <esp_system.h>  // esp_random() para generar tokens
 
 namespace gh {
 
@@ -74,6 +75,41 @@ bool ConfigManager::auth(const String& user, const String& pass) const {
   bool ok = (user == String(cfg_.adminUser)) && (pass == String(cfg_.adminPass));
   if (mutex_) xSemaphoreGive(mutex_);
   return ok;
+}
+
+String ConfigManager::apiToken() const {
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  String t = prefs_.getString(NVS_KEY_API_TOKEN, "");
+  if (mutex_) xSemaphoreGive(mutex_);
+  return t;
+}
+
+String ConfigManager::rotateApiToken() {
+  // Token aleatorio de 128 bits (32 hex). Se persiste en NVS separado y solo se
+  // devuelve una vez al solicitarlo; nunca se exporta en el JSON de config.
+  char buf[33];
+  snprintf(buf, sizeof(buf), "%08lX%08lX%08lX%08lX",
+           (unsigned long)esp_random(), (unsigned long)esp_random(),
+           (unsigned long)esp_random(), (unsigned long)esp_random());
+  String t(buf);
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  prefs_.putString(NVS_KEY_API_TOKEN, t);
+  if (mutex_) xSemaphoreGive(mutex_);
+  return t;
+}
+
+void ConfigManager::revokeApiToken() {
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  prefs_.remove(NVS_KEY_API_TOKEN);
+  if (mutex_) xSemaphoreGive(mutex_);
+}
+
+bool ConfigManager::validateApiToken(const String& t) const {
+  if (t.length() == 0) return false;
+  if (mutex_) xSemaphoreTake(mutex_, portMAX_DELAY);
+  String stored = prefs_.getString(NVS_KEY_API_TOKEN, "");
+  if (mutex_) xSemaphoreGive(mutex_);
+  return stored.length() > 0 && t == stored;
 }
 
 String ConfigManager::adminUser() const {

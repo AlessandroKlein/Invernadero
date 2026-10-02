@@ -8,7 +8,8 @@ namespace gh {
 
 class Watchdog {
 public:
-  void begin(uint32_t timeoutSec = 30); // Añade la tarea actual al watchdog
+  void begin(uint32_t timeoutSec = 30); // Inicializa y añade la tarea actual
+  void subscribe();                     // Añade la tarea actual (sin reinicializar)
   void feed();                          // Alimenta el watchdog (reset del timer)
 };
 

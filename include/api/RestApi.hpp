@@ -7,12 +7,18 @@
 
 #include "config/ConfigManager.hpp"
 #include "sensors/SensorManager.hpp"
+#include "sensors/SensorRegistry.hpp"
 #include "actuators/ActuatorManager.hpp"
+#include "actuators/ActuatorRegistry.hpp"
 #include "storage/History.hpp"
 #include "network/NetworkManager.hpp"
 #include "network/MqttManager.hpp"
 #include "network/WeatherStation.hpp"
 #include "control/RuleEngine.hpp"
+#include "core/ModuleRegistry.hpp"
+#include "hardware/HardwareManager.hpp"
+#include "system/HealthMonitor.hpp"
+#include "system/BootCounters.hpp"
 
 namespace gh {
 
@@ -23,6 +29,14 @@ public:
   void loop() { server_.handleClient(); }
   void setRuleEngine(RuleEngine* r) { rules_ = r; }
   void setWeather(WeatherStation* w) { weather_ = w; }
+  // Registros de la plataforma configurable (V8) expuestos por REST.
+  void setPlatform(HardwareManager* hw, ModuleRegistry* mod,
+                   SensorRegistry* sr, ActuatorRegistry* ar) {
+    hardware_ = hw; modules_ = mod; sensorReg_ = sr; actuatorReg_ = ar;
+  }
+  void setHealth(HealthMonitor* health, BootCounters* boot) {
+    health_ = health; boot_ = boot;
+  }
 private:
   WebServer server_{80};
   ConfigManager* cfg_ = nullptr;
@@ -33,6 +47,12 @@ private:
   MqttManager* mqtt_ = nullptr;
   RuleEngine* rules_ = nullptr;
   WeatherStation* weather_ = nullptr;
+  HardwareManager* hardware_ = nullptr;
+  ModuleRegistry* modules_ = nullptr;
+  SensorRegistry* sensorReg_ = nullptr;
+  ActuatorRegistry* actuatorReg_ = nullptr;
+  HealthMonitor* health_ = nullptr;
+  BootCounters* boot_ = nullptr;
 
   // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
   char sessionToken_[40] = "";
@@ -70,6 +90,16 @@ private:
   void handleReset();
   void handleRollback();
   void handleLogin();
+  void handleModules();
+  void handleBuses();
+  void handleHardware();
+  void handleSensorCatalog();
+  void handleActuatorCatalog();
+  void handleTokenStatus();
+  void handleTokenRotate();
+  void handleTokenRevoke();
+  void handleHealth();
+  void handleBoot();
   bool requireAuth();
   void issueToken();
   String buildStatusJson();
