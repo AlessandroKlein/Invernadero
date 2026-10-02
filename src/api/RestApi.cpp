@@ -83,6 +83,7 @@ void RestApi::setupRoutes() {
   server_.on("/api/v1/boot", HTTP_GET, [this]() { handleBoot(); });
   server_.on("/api/v1/storage", HTTP_GET, [this]() { handleStorage(); });
   server_.on("/api/v1/modbus/profiles", HTTP_GET, [this]() { handleModbusProfiles(); });
+  server_.on("/api/v1/logs", HTTP_GET, [this]() { handleLogs(); });
 }
 
 void RestApi::handleRoot() {
@@ -148,6 +149,10 @@ void RestApi::handleStorage() {
 
 void RestApi::handleModbusProfiles() {
   server_.send(200, "application/json", modbusProfiles_ ? modbusProfiles_->toJson() : "{}");
+}
+
+void RestApi::handleLogs() {
+  server_.send(200, "application/json", logger_ ? logger_->toJson() : "[]");
 }
 
 void RestApi::handleStatus() {

@@ -262,4 +262,28 @@ struct SensorInstance {
   ProvisioningState state = ProvisioningState::DISCOVERED;
 };
 
+// --- Configuración por capas (README §205 / decisiones) ----------------------
+// El ConfigManager plano evoluciona hacia capas superpuestas; la capa inferior
+// fija valores y la superior los sobrescribe.
+
+enum class ConfigLayer : uint8_t {
+  FACTORY = 0,     // valores de fábrica (base, no editables)
+  HARDWARE = 1,    // buses, pines, direcciones (solo local)
+  DRIVERS = 2,     // configuración de drivers (SHT31, Modbus, ...)
+  INSTALLATION = 3,// qué hardware hay en esta instalación
+  AUTOMATION = 4,  // reglas, umbrales, horarios, zonas
+  USER = 5         // preferencias del operador
+};
+
+inline const char* configLayerString(ConfigLayer l) {
+  switch (l) {
+    case ConfigLayer::HARDWARE:     return "HARDWARE";
+    case ConfigLayer::DRIVERS:      return "DRIVERS";
+    case ConfigLayer::INSTALLATION: return "INSTALLATION";
+    case ConfigLayer::AUTOMATION:   return "AUTOMATION";
+    case ConfigLayer::USER:         return "USER";
+    default:                        return "FACTORY";
+  }
+}
+
 } // namespace gh

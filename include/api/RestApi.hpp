@@ -21,6 +21,7 @@
 #include "hardware/HardwareManager.hpp"
 #include "system/HealthMonitor.hpp"
 #include "system/BootCounters.hpp"
+#include "system/Logger.hpp"
 
 namespace gh {
 
@@ -41,6 +42,7 @@ public:
   }
   void setStorage(StorageManager* storage) { storage_ = storage; }
   void setModbusProfiles(ModbusProfileRegistry* mp) { modbusProfiles_ = mp; }
+  void setLogger(Logger* logger) { logger_ = logger; }
 private:
   WebServer server_{80};
   ConfigManager* cfg_ = nullptr;
@@ -59,6 +61,7 @@ private:
   BootCounters* boot_ = nullptr;
   StorageManager* storage_ = nullptr;
   ModbusProfileRegistry* modbusProfiles_ = nullptr;
+  Logger* logger_ = nullptr;
 
   // Sesión de administrador local (token en RAM, expira) — secciones 19/154.
   char sessionToken_[40] = "";
@@ -108,6 +111,7 @@ private:
   void handleBoot();
   void handleStorage();
   void handleModbusProfiles();
+  void handleLogs();
   bool requireAuth();
   void issueToken();
   String buildStatusJson();

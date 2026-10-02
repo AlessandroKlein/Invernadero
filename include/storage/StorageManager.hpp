@@ -15,6 +15,9 @@ public:
   // Monta el backend (LittleFS primero; SPIFFS como fallback). formatOnFail
   // formatea la partición si el montaje falla.
   bool begin(bool formatOnFail = true);
+  // Monta una tarjeta SD por SPI (backend SD). Usa el bus SPI (pines por defecto
+  // o ya inicializados). Devuelve false si falla o ya hay un backend montado.
+  bool beginSD(int csPin);
   bool mounted() const { return mounted_; }
   StorageBackend backend() const { return backend_; }
 

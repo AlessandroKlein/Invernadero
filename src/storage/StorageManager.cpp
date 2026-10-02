@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <SPIFFS.h>
+#include <SD.h>
 
 namespace gh {
 
@@ -16,6 +17,17 @@ bool StorageManager::begin(bool formatOnFail) {
   if (SPIFFS.begin(formatOnFail)) {
     fs_ = &SPIFFS;
     backend_ = StorageBackend::SPIFFS;
+    mounted_ = true;
+    return true;
+  }
+  return false;
+}
+
+bool StorageManager::beginSD(int csPin) {
+  if (mounted_) return false;
+  if (SD.begin(csPin)) {
+    fs_ = &SD;
+    backend_ = StorageBackend::SD;
     mounted_ = true;
     return true;
   }
@@ -71,14 +83,16 @@ void StorageManager::listDir(const char* path, String* out, size_t max, size_t& 
 
 uint32_t StorageManager::usedBytes() const {
   if (!mounted_) return 0;
-  return (backend_ == StorageBackend::LITTLEFS)
-             ? (uint32_t)LittleFS.usedBytes() : (uint32_t)SPIFFS.usedBytes();
+  if (backend_ == StorageBackend::LITTLEFS) return (uint32_t)LittleFS.usedBytes();
+  if (backend_ == StorageBackend::SPIFFS)  return (uint32_t)SPIFFS.usedBytes();
+  return (uint32_t)SD.usedBytes();  // SD
 }
 
 uint32_t StorageManager::totalBytes() const {
   if (!mounted_) return 0;
-  return (backend_ == StorageBackend::LITTLEFS)
-             ? (uint32_t)LittleFS.totalBytes() : (uint32_t)SPIFFS.totalBytes();
+  if (backend_ == StorageBackend::LITTLEFS) return (uint32_t)LittleFS.totalBytes();
+  if (backend_ == StorageBackend::SPIFFS)  return (uint32_t)SPIFFS.totalBytes();
+  return (uint32_t)SD.totalBytes();  // SD
 }
 
 String StorageManager::toJson() const {

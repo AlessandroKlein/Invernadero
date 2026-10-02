@@ -12,6 +12,8 @@
 #include "core/PlatformTypes.hpp"
 #include "core/CapabilityRegistry.hpp"
 #include "core/ModuleRegistry.hpp"
+#include "core/EventBus.hpp"
+#include "core/Scheduler.hpp"
 
 #include "config/ConfigManager.hpp"
 #include "storage/History.hpp"
@@ -48,6 +50,7 @@
 #include "system/Device.hpp"
 #include "system/HealthMonitor.hpp"
 #include "system/BootCounters.hpp"
+#include "system/Logger.hpp"
 
 using namespace gh;
 
@@ -81,6 +84,9 @@ struct App {
   Watchdog watchdog;
   HealthMonitor health;
   BootCounters boot;
+  Logger logger;
+  EventBus events;
+  Scheduler scheduler;
   OtaManager ota;
 };
 static App app;
@@ -128,6 +134,16 @@ static void controlTask(void* arg) {
   }
 }
 
+// Publicación MQTT periódica (Scheduler, SEMA §206). Se ejecuta cada 10 s.
+static void mqttPublishTask(void* ctx) {
+  (void)ctx;
+  if (app.mqtt.connected()) {
+    app.mqtt.publishSensors(app.sensors.toJson());
+    app.mqtt.publishActuators(app.actuators.toJson());
+    if (app.weather.enabled()) app.mqtt.publishWeather(app.weather.toJson());
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(200);
@@ -139,14 +155,19 @@ void setup() {
   app.config.begin();
   Device::setState(DeviceState::INITIALIZING);
 
-  // 1.5) Salud por tareas y contadores de reinicio (SEMA §132-134).
+  // 1.5) Salud por tareas, contadores, logger y bus de eventos (SEMA §132-134).
   app.boot.begin();  // registra arranque + causa del último reinicio
   app.health.begin();
   app.health.registerTask("loop", xTaskGetCurrentTaskHandle());
+  app.logger.begin();
+  app.events.begin();
 
   // 2) Historial y almacenamiento (LittleFS/SPIFFS).
   app.history.begin(128);
   app.storage.begin();
+  app.logger.info("boot", "Sistema iniciando");
+  app.events.publish(EventType::SYSTEM_BOOT, "boot");
+  app.logger.info("storage", app.storage.mounted() ? "Filesystem montado" : "Filesystem no disponible");
 
   // 2.5) Plataforma configurable (V8): capacidades, módulos y catálogos.
   {
@@ -207,6 +228,7 @@ void setup() {
   Device::setState(DeviceState::NETWORK);
   app.weather.begin(app.config.get());
   app.mqtt.begin(app.config.get());
+  app.scheduler.add("mqtt_publish", 10000, mqttPublishTask, nullptr);
   app.api.begin(&app.config, &app.sensors, &app.actuators, &app.history,
                 &app.network, &app.mqtt);
   app.api.setRuleEngine(&app.rules);
@@ -215,6 +237,7 @@ void setup() {
   app.api.setHealth(&app.health, &app.boot);
   app.api.setStorage(&app.storage);
   app.api.setModbusProfiles(&app.modbusProfiles);
+  app.api.setLogger(&app.logger);
   app.ws.begin(&app.config, &app.sensors, &app.actuators);
   app.ota.begin(app.config.get().hostname);
   app.watchdog.begin(30);
@@ -253,15 +276,11 @@ void loop() {
     }
   }
 
-  // Publicar estado por MQTT cada 10 s (si hay servidor central).
-  static uint32_t lastMqtt = 0;
-  if (millis() - lastMqtt > 10000) {
-    lastMqtt = millis();
-    if (app.mqtt.connected()) {
-      app.mqtt.publishSensors(app.sensors.toJson());
-      app.mqtt.publishActuators(app.actuators.toJson());
-      if (app.weather.enabled()) app.mqtt.publishWeather(app.weather.toJson());
-    }
+  // Publicación MQTT periódica vía Scheduler y drenaje del bus de eventos.
+  app.scheduler.tick();
+  Event ev;
+  if (app.events.poll(ev)) {
+    app.logger.info("event", eventTypeString(ev.type));
   }
   delay(10);
 }
