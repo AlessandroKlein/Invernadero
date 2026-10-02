@@ -4,6 +4,17 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.14.0] - 2026-10-02
+
+### Added
+- Configuración por capas (base): `schema_version` en `SystemConfig`, migraciones
+  incrementales (`ConfigManager::migrate`) y merge profundo de capas
+  (`ConfigManager::mergeLayerJson`). Esquema de configuración subido a v2.
+- Las migraciones se aplican automáticamente al cargar la configuración.
+
+### Changed
+- `GH_CONFIG_SCHEMA_VERSION` pasa de 1 a 2 (migración de la interfaz de red).
+
 ## [3.13.0] - 2026-10-02
 
 ### Added
