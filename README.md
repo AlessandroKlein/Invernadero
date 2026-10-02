@@ -7590,15 +7590,16 @@ La automatización continúa funcionando aunque la red desaparezca.**
 
 El proyecto evolucionará hacia una arquitectura similar conceptualmente a sistemas como Tasmota, donde un único firmware pueda utilizarse en diferentes configuraciones de hardware sin necesidad de modificar el código fuente para cada instalación.
 
-> **Avance v3.11.0:** la base de la plataforma está implementada — `BusManager`,
+> **Avance v3.15.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y
-> `ActuatorRegistry` — junto con su exposición por REST, token de API, health
-> monitor y contadores de reinicio. V8.1 añade `SpiManager`, `ShiftRegister165`,
-> `Mcp23s17` y `AdcManager`; V8.4 añade `StorageManager` (LittleFS/SPIFFS/SD);
-> V9 añade `ModbusProfileRegistry` y la capa de aplicación CAN. La adquisición y
-> el control corren en tareas FreeRTOS separadas; además hay `Logger` estructurado,
-> `EventBus` y `Scheduler` por capacidades. Ver `docs/IMPLEMENTACION.md`,
-> `docs/MEJORAS.md` y `docs/ESTANDAR-DOCUMENTACION.md`.
+> `ActuatorRegistry` — con exposición por REST, token de API, health monitor y
+> contadores de reinicio. V8.1 añade `SpiManager`, `ShiftRegister165`, `Mcp23s17`
+> y `AdcManager`; V8.4 `StorageManager` (LittleFS/SPIFFS/SD); V9
+> `ModbusProfileRegistry` y capa CAN. La adquisición y el control corren en tareas
+> FreeRTOS separadas; hay `Logger`, `EventBus`, `Scheduler`, interfaz WiFi/Ethernet
+> intercambiable (W5500), configuración por capas con migraciones y autodetección
+> guiada (`/api/v1/detect`). Ver `docs/IMPLEMENTACION.md`, `docs/MEJORAS.md` y
+> `docs/ESTANDAR-DOCUMENTACION.md`.
 
 La diferencia fundamental será que el proyecto estará orientado específicamente a:
 
