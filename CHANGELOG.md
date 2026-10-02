@@ -4,6 +4,23 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.12.0] - 2026-10-02
+
+### Added
+- Multi-board en `platformio.ini`: entornos para ESP32 / S2 / S3 / C3 / C6 (con
+  `default_envs`) y guardas `CONFIG_IDF_TARGET_*` para TWAI (CAN solo en
+  ESP32/S2/S3).
+- Página web `/pins` (HTML, solo accesible desde la IP del dispositivo, no API)
+  con el mapa de pines y direcciones I²C.
+- Pines del bus SPI nativo (`SPI_SCK/MISO/MOSI`) y nota de compatibilidad de
+  strapping en `PinMap`.
+
+### Changed
+- `firmware_manifest.json` actualizado a v3.12.0 con SHA-256 real.
+
+### Removed
+- `.clinerules` (eliminado del repositorio).
+
 ## [3.11.0] - 2026-10-02
 
 ### Added
