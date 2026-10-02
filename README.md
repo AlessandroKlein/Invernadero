@@ -7594,10 +7594,10 @@ El proyecto evolucionará hacia una arquitectura similar conceptualmente a siste
 > desde la web (sensores/actuadores a habilitar, umbrales, zonas, red, perfiles
 > Modbus). La configuración **de hardware** avanza hacia runtime: ✅ **pines**
 > editables en `/pins` (NVS, con **bloqueo opcional para PCB fija** vía
-> `GH_PINS_LOCKED`) y ✅ **catálogo de sensores** editable
-> (`PUT /api/v1/sensors/catalog`), con **dirección y `enabled` tomados del
-> catálogo** (SHT31/AHT20/ADS1115/BH1750/SCD41); ❌ queda el resto de drivers y los
-> expansores (74HC165/MCP23S17/ADC). Ver `docs/MEJORAS.md` §13.
+> `GH_PINS_LOCKED`) y ✅ **catálogo de sensores instanciable completo**
+> (`PUT /api/v1/sensors/catalog`): dirección y `enabled` de **todos** los sensores
+> se toman del catálogo. ❌ Queda la **configuración de expansores**
+> (74HC165/MCP23S17/ADC) — paso 3. Ver `docs/MEJORAS.md` §13.
 >
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y
