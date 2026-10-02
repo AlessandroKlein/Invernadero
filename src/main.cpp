@@ -274,7 +274,7 @@ void loop() {
       if (type == "ota") {
         String url = cdoc["url"] | "";
         String sha = cdoc["sha256"] | "";
-        if (url.length()) app.ota.applyFromUrl(url, sha);
+        if (url.length()) app.ota.applyFromUrl(url, sha, app.network.client());
       }
     }
   }
