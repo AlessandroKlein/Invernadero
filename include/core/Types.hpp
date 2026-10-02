@@ -208,6 +208,7 @@ struct SystemConfig {
   GreenhouseType type = GreenhouseType::OUTDOOR;
   char greenhouseId[24] = "GREENHOUSE-001";          // Identificación del invernadero (sección 102)
   uint32_t configVersion = 1;                        // Versión de configuración (sección 104)
+  uint16_t schemaVersion = 1;                        // Esquema de la configuración (migraciones)
   ConfigSource configSource = ConfigSource::LOCAL;   // Propietario de la config (sección 103)
   bool simulation = false;                           // Modo simulación sin hardware (sección 191)
   UpdateChannel updateChannel = UpdateChannel::STABLE; // Canal OTA (sección 148)

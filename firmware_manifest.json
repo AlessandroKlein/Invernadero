@@ -1,14 +1,14 @@
 {
   "project": "Invernadero",
   "channel": "stable",
-  "version": "3.13.0",
+  "version": "3.14.0",
   "release_date": "2026-10-02",
-  "firmware_url": "https://github.com/AlessandroKlein/Invernadero/releases/download/v3.13.0/firmware.bin",
-  "sha256": "EADC9954434E53380880E3DD8FADBE99E4DDFF08F5F98296CC15B1634115314E",
-  "release_notes_url": "https://github.com/AlessandroKlein/Invernadero/releases/tag/v3.13.0",
+  "firmware_url": "https://github.com/AlessandroKlein/Invernadero/releases/download/v3.14.0/firmware.bin",
+  "sha256": "5943681C811BA87A78353E328834E56F37626C7C661CADBE2D4EF2845779937D",
+  "release_notes_url": "https://github.com/AlessandroKlein/Invernadero/releases/tag/v3.14.0",
   "min_bootloader": "1.0.0",
   "min_hardware": "rev0",
   "hardware_profile": "ESP32-GH-V1",
-  "config_schema": 1,
+  "config_schema": 2,
   "protocol": 1
 }

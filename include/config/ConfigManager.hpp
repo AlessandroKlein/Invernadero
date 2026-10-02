@@ -40,6 +40,14 @@ public:
   static String toJson(const SystemConfig& c);
   static bool fromJson(const String& json, SystemConfig& out);
 
+  // Migraciones de esquema: actualiza la configuración desde su schemaVersion
+  // al actual (GH_CONFIG_SCHEMA_VERSION). Idempotente.
+  static void migrate(SystemConfig& c);
+
+  // Merge profundo de dos JSON de configuración (base + capa parcial). Útil para
+  // la configuración por capas: FACTORY → ... → USER.
+  static String mergeLayerJson(const String& base, const String& layer);
+
 private:
   SystemConfig cfg_;                 // Configuración actual (CONFIG ACTUAL)
   SystemConfig prev_;                // Configuración anterior (CONFIG ANTERIOR, rollback)

@@ -1,6 +1,7 @@
 #include "config/ConfigManager.hpp"
 #include "config/Defaults.hpp"
 #include "system/Device.hpp"
+#include "core/Version.hpp"
 
 #include <ArduinoJson.h>
 #include <esp_system.h>  // esp_random() para generar tokens
@@ -23,14 +24,59 @@ void ConfigManager::begin() {
     SystemConfig parsed;
     if (fromJson(json, parsed)) {
       cfg_ = parsed; // Configuración previa válida
+      migrate(cfg_);
       ensureAdminPassword();
       return;
     }
   }
   // Si no había configuración (o estaba corrupta), usar valores de fábrica.
   cfg_ = defaults();
+  migrate(cfg_);
   ensureAdminPassword();
   save();
+}
+
+void ConfigManager::migrate(SystemConfig& c) {
+  // Migraciones incrementales por esquema. Cada case avanza una versión.
+  while (c.schemaVersion < GH_CONFIG_SCHEMA_VERSION) {
+    switch (c.schemaVersion) {
+      case 0:  // legado sin esquema
+        c.schemaVersion = 1;
+        break;
+      case 1:
+        // v2: interfaz de red intercambiable (WiFi/Ethernet). Los nuevos campos
+        // (netInterface, eth_*) ya tienen defaults seguros, así que solo se
+        // avanza el número de esquema.
+        c.schemaVersion = 2;
+        break;
+      default:
+        c.schemaVersion = GH_CONFIG_SCHEMA_VERSION;
+        break;
+    }
+  }
+}
+
+// Merge recursivo de objetos JSON: las claves de src sobrescriben las de dst.
+static void mergeJsonInto(JsonObject dst, JsonObjectConst src) {
+  for (JsonPairConst kv : src) {
+    if (kv.value().is<JsonObjectConst>() && dst[kv.key()].is<JsonObject>()) {
+      mergeJsonInto(dst[kv.key()].as<JsonObject>(), kv.value().as<JsonObjectConst>());
+    } else {
+      dst[kv.key()] = kv.value();
+    }
+  }
+}
+
+String ConfigManager::mergeLayerJson(const String& base, const String& layer) {
+  DynamicJsonDocument d(8192);
+  if (deserializeJson(d, base)) return base;
+  DynamicJsonDocument l(8192);
+  if (deserializeJson(l, layer)) return base;
+  if (!l.is<JsonObject>()) return base;
+  mergeJsonInto(d.as<JsonObject>(), l.as<JsonObjectConst>());
+  String out;
+  serializeJson(d, out);
+  return out;
 }
 
 SystemConfig ConfigManager::get() const {
@@ -213,6 +259,7 @@ String ConfigManager::toJson(const SystemConfig& c) {
   doc["device"]["type"] = (int)c.type;
   doc["device"]["greenhouse_id"] = c.greenhouseId;
   doc["config_version"] = c.configVersion;
+  doc["schema_version"] = c.schemaVersion;
   doc["configuration_source"] = (c.configSource == ConfigSource::CENTRAL) ? "CENTRAL" : "LOCAL";
   doc["simulation"] = c.simulation;
   doc["update_channel"] = updateChannelString(c.updateChannel);
@@ -375,6 +422,7 @@ bool ConfigManager::fromJson(const String& json, SystemConfig& out) {
     copyStr(doc["device"]["greenhouse_id"] | "GREENHOUSE-001", out.greenhouseId, sizeof(out.greenhouseId));
   }
   out.configVersion = doc["config_version"] | out.configVersion;
+  out.schemaVersion = doc["schema_version"] | out.schemaVersion;
   if (doc["configuration_source"].is<const char*>()) {
     out.configSource = (String(doc["configuration_source"] | "LOCAL") == "CENTRAL")
                          ? ConfigSource::CENTRAL : ConfigSource::LOCAL;
