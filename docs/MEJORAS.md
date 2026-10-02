@@ -32,8 +32,10 @@
 | Configuración por capas: `schema_version` + migraciones + merge | ✅ v3.14.0 |
 | Servidor: rate limiting + CORS + Store & Forward (`sequence_id`) | ✅ rama `server` |
 | Autodetección guiada (escaneo I²C → `/api/v1/detect`) | ✅ v3.15.0 |
-| HTTP/OTA sobre Ethernet (W5500) | ⚠️ bloqueado (ver §10) |
-| Gateway RS485 (polling multi-esclavo por perfiles) | ❌ pendiente |
+| Autodetección guiada (escaneo I²C → `/api/v1/detect`) | ✅ v3.15.0 |
+| OTA HTTP sobre Ethernet (W5500) | ✅ v3.16.0 |
+| Gateway RS485 (polling multi-esclavo por perfiles) | ✅ v3.17.0 |
+| HTTPS sobre W5500 (requiere W5500lwIP/ETH nativo) | ❌ pendiente |
 
 ---
 
@@ -199,43 +201,36 @@ al origen del stream**: recibe bytes por `Update.write()` desde cualquier `Clien
 
 Se deja registrado el resto para cuando se defina el hardware de red definitivo.
 
-## 11. Gateway RS485 (polling multi-esclavo por perfiles) — pendiente
+## 11. Gateway RS485 (polling multi-esclavo por perfiles) — implementado
 
-Objetivo: que el ESP32 actúe como **gateway RS485/Modbus**, sondeando múltiples
-esclavos según los perfiles declarados en `ModbusProfileRegistry` (ya existente),
-con intervalos configurables por dispositivo.
+`ModbusGateway` (`sensors/ModbusGateway`) sondea múltiples esclavos RS485/Modbus
+según las instancias de `ModbusProfileRegistry`, usando `ModbusRtu` como driver
+físico. Convierte registros (UINT16/INT16/UINT32/INT32/FLOAT32) con escala/offset
+y expone estado por esclavo (`OK / TIMEOUT / CRC_ERROR / DISCONNECTED`) en
+`GET /api/v1/modbus/gateway`.
 
-### Diseño propuesto
+### Diseño
 
 ```text
 ModbusGateway
     │
     ├── poll(slave_id, register, data_type, scale, offset)
-    │        └── ModbusRtu (driver físico, ya implementado)
+    │        └── ModbusRtu (driver físico)
     │
     ├── tabla de esclavos (de ModbusProfileRegistry.instances)
     │        ├── slave 1 → pH (perfil ph-generic)
     │        ├── slave 2 → EC (perfil ec-generic)
     │        └── slave N → ...
     │
-    └── publica valores en SensorManager / MQTT
+    └── valores + estado (GET /api/v1/modbus/gateway)
 ```
 
-### Responsabilidades
+### Pendiente (mejoras)
 
-1. **Tabla de polling**: por instancia, `slave_id`, `register`, `poll_interval_ms`,
-   timeout y reintentos.
-2. **Conversión**: aplicar `scale`/`offset`/`data_type` del perfil al valor crudo.
-3. **Estado**: por esclavo, `OK / TIMEOUT / CRC_ERROR / DISCONNECTED`.
-4. **Integración**: volcar los valores en `SensorManager` (magnitudes) y publicar
-   por MQTT; exponer `/api/v1/modbus/status`.
-
-### Pendiente
-
-- Implementar `ModbusGateway` (o `src/sensors/ModbusGateway.*`) que use
-  `ModbusRtu` + `ModbusProfileRegistry` en tiempo de ejecución.
-- Scheduler: registrar un tick de polling por gateway en el `Scheduler` por
-  capacidades (ya existente).
+- Integrar los valores del gateway en `SensorManager` (magnitudes) para que los
+  controladores los usen directamente.
+- Publicar por MQTT los valores/estado del gateway.
+- `poll_interval_ms` configurable por instancia (hoy fijo en 5000 ms).
 
 ## 12. Estado de MEJORAS (resumen)
 

@@ -4,6 +4,14 @@ Todas las modificaciones notables de este proyecto se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto sigue [Versionado Semántico](https://semver.org/lang/es/).
 
+## [3.17.0] - 2026-10-02
+
+### Added
+- Gateway RS485/Modbus (`sensors/ModbusGateway`): polling multi-esclavo según las
+  instancias de `ModbusProfileRegistry`, con conversión de tipos
+  (UINT16/INT16/UINT32/INT32/FLOAT32), escala/offset y estado por esclavo
+  (OK/TIMEOUT/CRC/DISCONNECTED). Expuesto en `GET /api/v1/modbus/gateway`.
+
 ## [3.16.0] - 2026-10-02
 
 ### Added
