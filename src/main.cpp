@@ -218,7 +218,20 @@ void setup() {
   // app.shift.setPwmEnabled(true, 200, 8);
   app.hardware.begin(app.pinConfig); // inicia los buses (I²C) y registra los nodos de hardware
   app.hardware.load(); // aplica ediciones del catálogo de expansores (NVS)
-  app.mcp.begin(app.pinConfig.i2cAddrMcp23017, &Wire);
+
+  // Instanciación del expansor MCP23017 desde el catálogo (paso 3): la dirección
+  // y el "enabled" vienen del nodo "mcp23017-0" (editable por PUT /api/v1/hardware),
+  // no de PinConfig. Si el nodo está deshabilitado, el driver no se inicia.
+  {
+    HardwareNode mcp;
+    uint8_t mcpAddr = app.pinConfig.i2cAddrMcp23017;
+    bool mcpOn = true;
+    if (app.hardware.getNode("mcp23017-0", mcp)) {
+      mcpAddr = mcp.address;
+      mcpOn = mcp.enabled;
+    }
+    if (mcpOn) app.mcp.begin(mcpAddr, &Wire);
+  }
 
   // 4) Sensores y actuadores.
   app.sensors.begin(app.config.get(), app.pinConfig, &app.sensorRegistry);
