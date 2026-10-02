@@ -18,6 +18,11 @@ struct PinConfig {
   int hc595Sclk = 18;
   int hc595Latch = 5;
   int hc595Count = 4;
+  // 74HC165 (entradas, SPI bit-banged; por defecto deshabilitado)
+  int hc165Data = 12;
+  int hc165Clock = 13;
+  int hc165Latch = 14;
+  int hc165Count = 1;
   // 1-Wire
   int oneWire = 4;
   // Entradas de pulsos

@@ -20,6 +20,7 @@
 #include "storage/StorageManager.hpp"
 
 #include "hardware/ShiftRegister595.hpp"
+#include "hardware/ShiftRegister165.hpp"
 #include "hardware/Mcp23017.hpp"
 #include "hardware/SpiManager.hpp"
 #include "hardware/Mcp23s17.hpp"
@@ -74,6 +75,7 @@ struct App {
   PinConfig pinConfig;
   StorageManager storage;
   ShiftRegister595 shift;
+  ShiftRegister165 input;  // 74HC165 (entradas) instanciado desde el catálogo
   Mcp23017 mcpPool[4];  // pool de expansores I²C instanciados desde el catálogo
   SpiManager spi;
   Mcp23s17 spiPool[4];  // pool de expansores SPI
@@ -256,6 +258,10 @@ void setup() {
         app.spiPool[spiCount++].begin(&app.spi, nd.address, 0);
       } else if (nd.kind == HardwareKind::ADC && adcCount < 4) {
         app.adcPool[adcCount++].begin(&app.spi, nd.address, AdcKind::MCP3208, 8);
+      } else if (nd.kind == HardwareKind::HC165) {
+        // 74HC165 en cascada: una instancia con pines y nº de chips desde NVS.
+        app.input.begin(app.pinConfig.hc165Data, app.pinConfig.hc165Clock,
+                        app.pinConfig.hc165Latch, app.pinConfig.hc165Count);
       }
     }
   }

@@ -18,6 +18,10 @@ String pinConfigToJson(const PinConfig& p) {
   o["hc595_sclk"] = p.hc595Sclk;
   o["hc595_latch"] = p.hc595Latch;
   o["hc595_count"] = p.hc595Count;
+  o["hc165_data"] = p.hc165Data;
+  o["hc165_clock"] = p.hc165Clock;
+  o["hc165_latch"] = p.hc165Latch;
+  o["hc165_count"] = p.hc165Count;
   o["onewire"] = p.oneWire;
   o["flow_pin"] = p.flowPin;
   o["rain_pin"] = p.rainPin;
@@ -56,6 +60,10 @@ bool pinConfigFromJson(const String& json, PinConfig& out) {
   out.hc595Sclk = o["hc595_sclk"] | out.hc595Sclk;
   out.hc595Latch = o["hc595_latch"] | out.hc595Latch;
   out.hc595Count = o["hc595_count"] | out.hc595Count;
+  out.hc165Data = o["hc165_data"] | out.hc165Data;
+  out.hc165Clock = o["hc165_clock"] | out.hc165Clock;
+  out.hc165Latch = o["hc165_latch"] | out.hc165Latch;
+  out.hc165Count = o["hc165_count"] | out.hc165Count;
   out.oneWire = o["onewire"] | out.oneWire;
   out.flowPin = o["flow_pin"] | out.flowPin;
   out.rainPin = o["rain_pin"] | out.rainPin;

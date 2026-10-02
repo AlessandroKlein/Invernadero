@@ -190,6 +190,13 @@ button{background:var(--accent);color:#06250f;border:0;border-radius:8px;padding
     <label>LATCH<input name="hc595_latch" type="number"></label>
     <label>Registros<input name="hc595_count" type="number"></label>
   </div>
+  <h2>74HC165 (entradas)</h2>
+  <div class="grid">
+    <label>DATA (Q7)<input name="hc165_data" type="number"></label>
+    <label>CLOCK (SHCP)<input name="hc165_clock" type="number"></label>
+    <label>LATCH (PL)<input name="hc165_latch" type="number"></label>
+    <label>Registros<input name="hc165_count" type="number"></label>
+  </div>
   <h2>1-Wire</h2>
   <div class="grid"><label>Pin DS18B20<input name="onewire" type="number"></label></div>
   <h2>Entradas de pulsos</h2>
