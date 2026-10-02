@@ -7597,8 +7597,9 @@ El proyecto evolucionará hacia una arquitectura similar conceptualmente a siste
 > `GH_PINS_LOCKED`) y ✅ **catálogo de sensores instanciable completo**
 > (`PUT /api/v1/sensors/catalog`): dirección y `enabled` de **todos** los sensores
 > se toman del catálogo. ⚠️ **Expansores**: catálogo editable/persistido
-> (`PUT /api/v1/hardware`) y MCP23017 instanciado desde el catálogo; falta el pool
-> de drivers (74HC165/múltiples MCP23S17/ADC) y canales. Ver `docs/MEJORAS.md` §13.
+> (`PUT /api/v1/hardware`, permite agregar nodos) y **pool de MCP23017** (hasta 4)
+> instanciado desde el catálogo; falta pools 74HC165/MCP23S17/ADC y canales.
+> Ver `docs/MEJORAS.md` §13.
 >
 > **Avance v3.17.0:** la plataforma está implementada — `BusManager`,
 > `HardwareManager`, `ModuleRegistry`, `CapabilityRegistry`, `SensorRegistry` y
